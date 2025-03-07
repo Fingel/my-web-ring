@@ -1,26 +1,73 @@
+use clap::{Parser, Subcommand};
 use mwr::crud::{create_source, establish_connection, get_sources};
 use std::env;
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// List all sources
+    List,
+    /// Add a new source
+    Add { url: String },
+    /// Edit or delete a source
+    Edit {
+        /// ID of the source to edit
+        id: u32,
+        /// New URL for the source
+        #[arg(short, long)]
+        url: Option<String>,
+        /// New weight for the source
+        #[arg(short, long)]
+        weight: Option<u32>,
+        /// Delete the source
+        #[arg(short, long)]
+        delete: bool,
+    },
+}
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
-        println!("Usage: {} <new_url>", args[0]);
-        std::process::exit(1);
-    }
+    let conn = &mut establish_connection();
+    let cli = Cli::parse();
+    match cli.command {
+        Some(Commands::List) => {
+            let results = get_sources(conn);
 
-    let new_url = &args[1];
+            println!("Displaying {} sources", results.len());
 
-    let connection = &mut establish_connection();
-
-    create_source(connection, new_url);
-
-    let results = get_sources(connection);
-
-    println!("Displaying {} sources", results.len());
-
-    for source in results.iter() {
-        println!("id: {}", source.id);
-        println!("url: {}", source.url);
-        println!("timestamp: {}", source.added);
+            for source in results.iter() {
+                println!("id: {}", source.id);
+                println!("url: {}", source.url);
+                println!("timestamp: {}", source.added);
+            }
+        }
+        Some(Commands::Add { url }) => {
+            create_source(conn, &url);
+        }
+        Some(Commands::Edit {
+            id,
+            url,
+            weight,
+            delete,
+        }) => {
+            if delete {
+                println!("Deleting source with ID: {}", id);
+            } else {
+                println!("Editing source with ID: {}", id);
+                if let Some(url) = url {
+                    println!("New URL: {}", url);
+                }
+                if let Some(weight) = weight {
+                    println!("New weight: {}", weight);
+                }
+            }
+        }
+        None => {
+            println!("No command provided, opening a new source");
+        }
     }
 }
