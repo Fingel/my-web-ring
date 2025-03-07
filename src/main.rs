@@ -1,6 +1,5 @@
 use clap::{Parser, Subcommand};
 use mwr::crud::{create_source, establish_connection, get_sources};
-use std::env;
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
@@ -41,6 +40,7 @@ fn main() {
 
             for source in results.iter() {
                 println!("id: {}", source.id);
+                println!("weight: {}", source.weight);
                 println!("url: {}", source.url);
                 println!("timestamp: {}", source.added);
             }

@@ -7,6 +7,7 @@ use time::PrimitiveDateTime;
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Source {
     pub id: i32,
+    pub weight: i32,
     pub url: String,
     pub added: PrimitiveDateTime,
 }
