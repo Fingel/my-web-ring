@@ -56,3 +56,15 @@ Problems:
     motivated to keep adding sources if the old ones get old?
     3. Fairness. How to prevent prolific authors from dominating the selection algorith,
     it'll have to be a clever algo.
+
+
+### Data Model
+
+Source -> Contains high level info about a source, weight, top level url, name, etc.
+Page -> And individual page that can be selected and opened, related to a source. These must be downloaded.
+In the case of a single page, just uses's the parent's url.
+
+
+### Deps
+* ureq looks simple and find for a blocking usecase (trying threads for this project)
+* rss looks fine for parsing rss
