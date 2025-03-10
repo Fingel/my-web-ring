@@ -1,7 +1,8 @@
 pub mod crud;
 pub mod models;
 pub mod schema;
-use crud::{create_pages, establish_connection};
+use crud::create_pages;
+use diesel::SqliteConnection;
 use models::{NewPage, Source};
 use rss::Channel;
 use time::{PrimitiveDateTime, format_description::well_known::Rfc2822};
@@ -14,8 +15,7 @@ pub fn parse_rss(xml: &str) -> Result<Channel, rss::Error> {
     Channel::read_from(xml.as_bytes())
 }
 
-pub fn sync_pages(source: Source) -> usize {
-    let mut conn = establish_connection();
+pub fn sync_pages(conn: &mut SqliteConnection, source: Source) -> usize {
     let channel = parse_rss(&download_source(source.url.as_str()).unwrap()).unwrap();
     let new_pages: Vec<NewPage> = channel
         .items()
@@ -29,5 +29,5 @@ pub fn sync_pages(source: Source) -> usize {
                 .and_then(|date| PrimitiveDateTime::parse(date, &Rfc2822).ok()),
         })
         .collect();
-    create_pages(&mut conn, new_pages)
+    create_pages(conn, new_pages)
 }

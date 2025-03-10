@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use mwr::crud::{create_source, establish_connection, get_source, get_sources};
-use mwr::{download_source, parse_rss, sync_pages};
+use mwr::sync_pages;
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
@@ -54,11 +54,7 @@ fn main() {
         }
         Some(Commands::Reload { id }) => {
             let source = get_source(conn, id);
-            let resp = download_source(&source.url).expect("Failed to download source");
-            let channel = parse_rss(&resp).expect("Could not parse RSS");
-            println!("{:?}", channel);
-            println!("{:?}", channel.items);
-            let saved = sync_pages(source);
+            let saved = sync_pages(conn, source);
             println!("Saved {} pages", saved);
         }
         Some(Commands::Edit {
