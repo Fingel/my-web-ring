@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
-use mwr::crud::{create_source, establish_connection, get_sources};
+use mwr::crud::{create_source, establish_connection, get_source, get_sources};
+use mwr::{download_source, parse_rss, sync_pages};
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
@@ -9,6 +10,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Reload a source
+    Reload { id: i32 },
     /// List all sources
     List,
     /// Add a new source
@@ -46,7 +49,17 @@ fn main() {
             }
         }
         Some(Commands::Add { url }) => {
-            create_source(conn, &url);
+            let source = create_source(conn, &url);
+            println!("Added {:?}", source);
+        }
+        Some(Commands::Reload { id }) => {
+            let source = get_source(conn, id);
+            let resp = download_source(&source.url).expect("Failed to download source");
+            let channel = parse_rss(&resp).expect("Could not parse RSS");
+            println!("{:?}", channel);
+            println!("{:?}", channel.items);
+            let saved = sync_pages(source);
+            println!("Saved {} pages", saved);
         }
         Some(Commands::Edit {
             id,

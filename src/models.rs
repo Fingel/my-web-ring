@@ -34,5 +34,5 @@ pub struct NewPage<'a> {
     pub source_id: i32,
     pub url: &'a str,
     pub read: Option<PrimitiveDateTime>,
-    pub date: PrimitiveDateTime,
+    pub date: Option<PrimitiveDateTime>,
 }
