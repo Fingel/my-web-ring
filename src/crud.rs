@@ -79,16 +79,20 @@ pub fn get_sources(conn: &mut SqliteConnection) -> Vec<Source> {
 pub fn create_pages(conn: &mut SqliteConnection, new_pages: Vec<NewPage>) -> usize {
     use crate::schema::pages;
 
-    match diesel::insert_into(pages::table)
-        .values(&new_pages)
-        .execute(conn)
-    {
-        Ok(count) => count,
-        Err(err) => match err {
-            DatabaseError(DatabaseErrorKind::UniqueViolation, _) => 0,
-            _ => panic!("Database error: {}", err),
-        },
-    }
+    let mut count = 0;
+    new_pages.iter().for_each(|new_page| {
+        count += match diesel::insert_into(pages::table)
+            .values(new_page)
+            .execute(conn)
+        {
+            Ok(count) => count,
+            Err(err) => match err {
+                DatabaseError(DatabaseErrorKind::UniqueViolation, _) => 0,
+                _ => panic!("Database error: {}", err),
+            },
+        }
+    });
+    count
 }
 
 pub fn get_pages(conn: &mut SqliteConnection, unread: bool) -> Vec<Page> {

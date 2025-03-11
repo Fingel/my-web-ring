@@ -87,8 +87,8 @@ fn main() {
             let handle = thread::spawn(|| {
                 let sync_conn = &mut establish_connection();
                 println!("Syncing sources...");
-                sync_sources(sync_conn);
-                println!("Done syncing sources");
+                let count = sync_sources(sync_conn);
+                println!("Done syncing sources. {} new pages", count);
             });
             let pages = get_pages(conn, true);
             if pages.is_empty() {
