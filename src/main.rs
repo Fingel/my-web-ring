@@ -2,8 +2,9 @@ use clap::{Parser, Subcommand};
 use mwr::crud::{
     create_source, establish_connection, get_pages, get_source_by_id, get_sources, mark_page_read,
 };
-use mwr::sync_pages;
+use mwr::{sync_pages, sync_sources};
 use rand::prelude::*;
+use std::thread;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -83,6 +84,12 @@ fn main() {
             }
         }
         None => {
+            let handle = thread::spawn(|| {
+                let sync_conn = &mut establish_connection();
+                println!("Syncing sources...");
+                sync_sources(sync_conn);
+                println!("Done syncing sources");
+            });
             let pages = get_pages(conn, true);
             if pages.is_empty() {
                 println!("No pages available. Add a source first.");
@@ -90,13 +97,14 @@ fn main() {
                 println!("{} unread pages", pages.len());
                 let mut rng = rand::rng();
                 let page = pages.choose(&mut rng).unwrap();
-                println!("Random page selected: id: {}, url: {}", page.id, page.url);
+                println!("Page selected: id: {}, url: {}", page.id, page.url);
                 if webbrowser::open(&page.url).is_ok() {
                     mark_page_read(conn, page);
                 } else {
                     println!("Failed to open browser");
                 }
             }
+            handle.join().unwrap();
         }
     }
 }

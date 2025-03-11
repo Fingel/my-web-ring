@@ -1,7 +1,7 @@
 pub mod crud;
 pub mod models;
 pub mod schema;
-use crud::create_pages;
+use crud::{create_pages, get_sources};
 use diesel::SqliteConnection;
 use models::{NewPage, Source};
 use rss::Channel;
@@ -30,4 +30,13 @@ pub fn sync_pages(conn: &mut SqliteConnection, source: Source) -> usize {
         })
         .collect();
     create_pages(conn, new_pages)
+}
+
+pub fn sync_sources(conn: &mut SqliteConnection) -> usize {
+    let sources = get_sources(conn);
+    let mut count = 0;
+    for source in sources {
+        count += sync_pages(conn, source);
+    }
+    count
 }
