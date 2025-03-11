@@ -1,6 +1,10 @@
 use clap::{Parser, Subcommand};
-use mwr::crud::{create_source, establish_connection, get_source_by_id, get_sources};
+use mwr::crud::{
+    create_source, establish_connection, get_pages, get_source_by_id, get_sources, mark_page_read,
+};
 use mwr::sync_pages;
+use rand::prelude::*;
+
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
@@ -79,7 +83,20 @@ fn main() {
             }
         }
         None => {
-            println!("No command provided, opening a new source");
+            let pages = get_pages(conn, true);
+            if pages.is_empty() {
+                println!("No pages available. Add a source first.");
+            } else {
+                println!("{} unread pages", pages.len());
+                let mut rng = rand::rng();
+                let page = pages.choose(&mut rng).unwrap();
+                println!("Random page selected: id: {}, url: {}", page.id, page.url);
+                if webbrowser::open(&page.url).is_ok() {
+                    mark_page_read(conn, page);
+                } else {
+                    println!("Failed to open browser");
+                }
+            }
         }
     }
 }
