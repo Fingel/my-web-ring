@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use mwr::crud::{create_source, establish_connection, get_source, get_sources};
+use mwr::crud::{create_source, establish_connection, get_source_by_id, get_sources};
 use mwr::sync_pages;
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -53,9 +53,12 @@ fn main() {
             println!("Added {:?}", source);
         }
         Some(Commands::Reload { id }) => {
-            let source = get_source(conn, id);
-            let saved = sync_pages(conn, source);
-            println!("Saved {} pages", saved);
+            if let Some(source) = get_source_by_id(conn, id) {
+                let saved = sync_pages(conn, source);
+                println!("Saved {} pages", saved);
+            } else {
+                println!("Source not found");
+            }
         }
         Some(Commands::Edit {
             id,
