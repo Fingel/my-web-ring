@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use mwr::crud::{
     create_source, establish_connection, get_pages, get_source_by_id, get_sources, mark_page_read,
 };
-use mwr::{sync_pages, sync_sources};
+use mwr::{print_source_list, sync_pages, sync_sources};
 use rand::prelude::*;
 use std::thread;
 
@@ -42,16 +42,8 @@ fn main() {
     let cli = Cli::parse();
     match cli.command {
         Some(Commands::List) => {
-            let results = get_sources(conn);
-
-            println!("Displaying {} sources", results.len());
-
-            for source in results.iter() {
-                println!("id: {}", source.id);
-                println!("weight: {}", source.weight);
-                println!("url: {}", source.url);
-                println!("timestamp: {}", source.added);
-            }
+            let sources = get_sources(conn);
+            print_source_list(&sources);
         }
         Some(Commands::Add { url }) => {
             let source = create_source(conn, &url);
@@ -59,7 +51,7 @@ fn main() {
         }
         Some(Commands::Reload { id }) => {
             if let Some(source) = get_source_by_id(conn, id) {
-                let saved = sync_pages(conn, source);
+                let saved = sync_pages(conn, &source);
                 println!("Saved {} pages", saved);
             } else {
                 println!("Source not found");

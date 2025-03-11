@@ -1,5 +1,6 @@
 use crate::models::{NewPage, NewSource, Page, Source};
 use diesel::{
+    dsl::now,
     prelude::*,
     result::{
         DatabaseErrorKind,
@@ -7,7 +8,6 @@ use diesel::{
     },
 };
 use std::env;
-use time::{OffsetDateTime, PrimitiveDateTime};
 
 pub fn establish_connection() -> SqliteConnection {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
@@ -76,6 +76,16 @@ pub fn get_sources(conn: &mut SqliteConnection) -> Vec<Source> {
         .expect("Error loading sources")
 }
 
+pub fn mark_source_synced(conn: &mut SqliteConnection, marked_source: Source) -> Source {
+    use crate::schema::sources::dsl::*;
+
+    diesel::update(&marked_source)
+        .set(last_synced.eq(now))
+        .returning(Source::as_returning())
+        .get_result(conn)
+        .expect("Error marking source as synced")
+}
+
 pub fn create_pages(conn: &mut SqliteConnection, new_pages: Vec<NewPage>) -> usize {
     use crate::schema::pages;
 
@@ -109,10 +119,8 @@ pub fn get_pages(conn: &mut SqliteConnection, unread: bool) -> Vec<Page> {
 
 pub fn mark_page_read(conn: &mut SqliteConnection, page: &Page) -> Page {
     use crate::schema::pages::dsl::*;
-    let now_odt = OffsetDateTime::now_utc();
-    let now_pdt = PrimitiveDateTime::new(now_odt.date(), now_odt.time());
     diesel::update(page)
-        .set(read.eq(now_pdt))
+        .set(read.eq(now))
         .returning(Page::as_returning())
         .get_result(conn)
         .expect("Error setting page read.")

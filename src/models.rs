@@ -2,12 +2,13 @@ use crate::schema::{pages, sources};
 use diesel::prelude::*;
 use time::PrimitiveDateTime;
 
-#[derive(Queryable, Selectable, Identifiable, Debug, PartialEq)]
+#[derive(Queryable, Selectable, Identifiable, Debug, PartialEq, AsChangeset)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Source {
     pub id: i32,
     pub weight: i32,
     pub url: String,
+    pub last_synced: Option<PrimitiveDateTime>,
     pub added: PrimitiveDateTime,
 }
 
