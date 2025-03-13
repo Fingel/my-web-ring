@@ -1,8 +1,6 @@
 use clap::{Parser, Subcommand};
-use mwr::crud::{
-    create_source, establish_connection, get_pages, get_source_by_id, get_sources, mark_page_read,
-};
-use mwr::{print_source_list, sync_pages, sync_sources};
+use mwr::crud::{create_source, establish_connection, get_pages, get_sources, mark_page_read};
+use mwr::{print_source_list, sync_sources};
 use rand::prelude::*;
 use std::thread;
 
@@ -15,8 +13,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Reload a source
-    Reload { id: i32 },
+    /// Sync all Sources
+    Reload,
     /// List all sources
     List,
     /// Add a new source
@@ -49,13 +47,9 @@ fn main() {
             let source = create_source(conn, &url);
             println!("Added {:?}", source);
         }
-        Some(Commands::Reload { id }) => {
-            if let Some(source) = get_source_by_id(conn, id) {
-                let saved = sync_pages(conn, &source);
-                println!("Saved {} pages", saved);
-            } else {
-                println!("Source not found");
-            }
+        Some(Commands::Reload) => {
+            let saved = sync_sources(conn);
+            println!("Saved {} pages", saved);
         }
         Some(Commands::Edit {
             id,

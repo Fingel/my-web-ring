@@ -8,6 +8,7 @@ use diesel::{
     },
 };
 use std::env;
+use time::PrimitiveDateTime;
 
 pub fn establish_connection() -> SqliteConnection {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
@@ -18,7 +19,9 @@ pub fn establish_connection() -> SqliteConnection {
 pub fn create_source(conn: &mut SqliteConnection, url: &str) -> Source {
     use crate::schema::sources;
 
-    let new_post = NewSource { url };
+    let new_post = NewSource {
+        url: url.to_string(),
+    };
 
     match diesel::insert_into(sources::table)
         .values(&new_post)
@@ -76,11 +79,16 @@ pub fn get_sources(conn: &mut SqliteConnection) -> Vec<Source> {
         .expect("Error loading sources")
 }
 
-pub fn mark_source_synced(conn: &mut SqliteConnection, marked_source: Source) -> Source {
+pub fn mark_source_synced(
+    conn: &mut SqliteConnection,
+    marked_source: Source,
+    i_last_modified: Option<PrimitiveDateTime>,
+    i_etag: Option<String>,
+) -> Source {
     use crate::schema::sources::dsl::*;
 
     diesel::update(&marked_source)
-        .set(last_synced.eq(now))
+        .set((last_modified.eq(i_last_modified), etag.eq(i_etag)))
         .returning(Source::as_returning())
         .get_result(conn)
         .expect("Error marking source as synced")

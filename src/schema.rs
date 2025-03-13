@@ -16,7 +16,8 @@ diesel::table! {
         id -> Integer,
         weight -> Integer,
         url -> Text,
-        last_synced -> Nullable<Timestamp>,
+        last_modified -> Nullable<Timestamp>,
+        etag -> Nullable<Text>,
         added -> Timestamp,
     }
 }

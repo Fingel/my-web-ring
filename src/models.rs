@@ -8,14 +8,15 @@ pub struct Source {
     pub id: i32,
     pub weight: i32,
     pub url: String,
-    pub last_synced: Option<PrimitiveDateTime>,
+    pub last_modified: Option<PrimitiveDateTime>,
+    pub etag: Option<String>,
     pub added: PrimitiveDateTime,
 }
 
 #[derive(Insertable)]
 #[diesel(table_name = sources)]
-pub struct NewSource<'a> {
-    pub url: &'a str,
+pub struct NewSource {
+    pub url: String,
 }
 
 #[derive(Queryable, Selectable, Identifiable, Associations, Debug, PartialEq)]
@@ -31,9 +32,9 @@ pub struct Page {
 
 #[derive(Insertable)]
 #[diesel(table_name = pages)]
-pub struct NewPage<'a> {
+pub struct NewPage {
     pub source_id: i32,
-    pub url: &'a str,
+    pub url: String,
     pub read: Option<PrimitiveDateTime>,
     pub date: Option<PrimitiveDateTime>,
 }
