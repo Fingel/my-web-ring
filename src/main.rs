@@ -1,5 +1,8 @@
 use clap::{Parser, Subcommand};
-use mwr::crud::{create_source, establish_connection, get_pages, get_sources, mark_page_read};
+use diesel::{RunQueryDsl, sql_query};
+use mwr::crud::{
+    create_source, delete_source, establish_connection, get_pages, get_sources, mark_page_read,
+};
 use mwr::{print_source_list, sync_sources};
 use rand::prelude::*;
 use std::thread;
@@ -19,24 +22,15 @@ enum Commands {
     List,
     /// Add a new source
     Add { url: String },
-    /// Edit or delete a source
-    Edit {
-        /// ID of the source to edit
-        id: u32,
-        /// New URL for the source
-        #[arg(short, long)]
-        url: Option<String>,
-        /// New weight for the source
-        #[arg(short, long)]
-        weight: Option<u32>,
-        /// Delete the source
-        #[arg(short, long)]
-        delete: bool,
-    },
+    /// Delete a source
+    Delete { id: i32 },
 }
 
 fn main() {
     let conn = &mut establish_connection();
+    sql_query("PRAGMA foreign_keys = ON")
+        .execute(conn)
+        .expect("Failed to enable foreign keys");
     let cli = Cli::parse();
     match cli.command {
         Some(Commands::List) => {
@@ -51,22 +45,11 @@ fn main() {
             let saved = sync_sources(conn);
             println!("Saved {} pages", saved);
         }
-        Some(Commands::Edit {
-            id,
-            url,
-            weight,
-            delete,
-        }) => {
-            if delete {
-                println!("Deleting source with ID: {}", id);
+        Some(Commands::Delete { id }) => {
+            if let Ok(deleted) = delete_source(conn, id) {
+                println!("Deleted {}", deleted);
             } else {
-                println!("Editing source with ID: {}", id);
-                if let Some(url) = url {
-                    println!("New URL: {}", url);
-                }
-                if let Some(weight) = weight {
-                    println!("New weight: {}", weight);
-                }
+                println!("No source with that ID found.");
             }
         }
         None => {

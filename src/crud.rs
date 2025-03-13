@@ -69,6 +69,17 @@ pub fn get_source_by_id(conn: &mut SqliteConnection, source_id: i32) -> Option<S
     }
 }
 
+pub fn delete_source(conn: &mut SqliteConnection, source_id: i32) -> Result<String, ()> {
+    if let Some(source) = get_source_by_id(conn, source_id) {
+        diesel::delete(&source)
+            .execute(conn)
+            .expect("Error deleting source");
+        Ok(source.url)
+    } else {
+        Err(())
+    }
+}
+
 pub fn get_sources(conn: &mut SqliteConnection) -> Vec<Source> {
     use crate::schema::sources::dsl::*;
 
