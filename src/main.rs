@@ -3,8 +3,7 @@ use diesel::{RunQueryDsl, sql_query};
 use mwr::crud::{
     create_source, delete_source, establish_connection, get_pages, get_sources, mark_page_read,
 };
-use mwr::{print_source_list, sync_sources};
-use rand::prelude::*;
+use mwr::{print_source_list, select_page, sync_sources};
 use std::thread;
 
 #[derive(Parser)]
@@ -64,11 +63,10 @@ fn main() {
                 println!("No pages available. Add a source first.");
             } else {
                 println!("{} unread pages", pages.len());
-                let mut rng = rand::rng();
-                let page = pages.choose(&mut rng).unwrap();
+                let page = select_page(conn).unwrap();
                 println!("Page selected: id: {}, url: {}", page.id, page.url);
                 if webbrowser::open(&page.url).is_ok() {
-                    mark_page_read(conn, page);
+                    mark_page_read(conn, &page);
                 } else {
                     println!("Failed to open browser");
                 }

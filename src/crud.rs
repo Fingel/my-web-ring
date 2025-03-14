@@ -69,6 +69,22 @@ pub fn get_source_by_id(conn: &mut SqliteConnection, source_id: i32) -> Option<S
     }
 }
 
+pub fn get_page_by_id(conn: &mut SqliteConnection, page_id: i32) -> Option<Page> {
+    use crate::schema::pages::dsl::*;
+
+    match pages
+        .filter(id.eq(page_id))
+        .select(Page::as_select())
+        .first(conn)
+    {
+        Ok(page) => Some(page),
+        Err(err) => match err {
+            NotFound => None,
+            _ => panic!("Database error: {}", err),
+        },
+    }
+}
+
 pub fn delete_source(conn: &mut SqliteConnection, source_id: i32) -> Result<String, String> {
     if let Some(source) = get_source_by_id(conn, source_id) {
         diesel::delete(&source)
@@ -143,4 +159,16 @@ pub fn mark_page_read(conn: &mut SqliteConnection, page: &Page) -> Page {
         .returning(Page::as_returning())
         .get_result(conn)
         .expect("Error setting page read.")
+}
+
+pub fn pages_with_source_weight(conn: &mut SqliteConnection) -> Vec<(i32, i32)> {
+    use crate::schema::pages::dsl::{id, pages, read};
+    use crate::schema::sources::dsl::{sources, weight};
+
+    pages
+        .inner_join(sources)
+        .filter(read.is_null())
+        .select((id, weight))
+        .get_results(conn)
+        .expect("Error loading pages with source weight")
 }

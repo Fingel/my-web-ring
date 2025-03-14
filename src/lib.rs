@@ -1,9 +1,12 @@
 pub mod crud;
 pub mod models;
 pub mod schema;
-use crud::{create_pages, get_sources, mark_source_synced};
+use crud::{
+    create_pages, get_page_by_id, get_sources, mark_source_synced, pages_with_source_weight,
+};
 use diesel::SqliteConnection;
-use models::{NewPage, Source};
+use models::{NewPage, Page, Source};
+use rand::random_range;
 use rss::Channel;
 use time::{
     PrimitiveDateTime, UtcOffset, format_description::well_known::Rfc2822,
@@ -110,4 +113,24 @@ pub fn print_source_list(sources: &Vec<Source>) {
         println!("{:<5}{:<15}{:<10}{}", s.id, formatted, s.weight, s.url);
     }
     println!("{} sources.", sources.len());
+}
+
+/// Use cumulative sum method to select a page on weighted probability.
+pub fn select_page(conn: &mut SqliteConnection) -> Option<Page> {
+    let weighted_pages = pages_with_source_weight(conn);
+    let mut sum = 0;
+    let cum_sum: Vec<(i32, i32)> = weighted_pages
+        .iter()
+        .map(|(page_id, weight)| {
+            sum += weight;
+            (*page_id, sum)
+        })
+        .collect();
+    let pick = random_range(0..sum);
+    for (page_id, weight) in cum_sum {
+        if pick < weight {
+            return get_page_by_id(conn, page_id);
+        }
+    }
+    None
 }
