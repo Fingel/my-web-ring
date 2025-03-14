@@ -63,12 +63,15 @@ fn main() {
                 println!("No pages available. Add a source first.");
             } else {
                 println!("{} unread pages", pages.len());
-                let page = select_page(conn).unwrap();
-                println!("Page selected: id: {}, url: {}", page.id, page.url);
-                if webbrowser::open(&page.url).is_ok() {
-                    mark_page_read(conn, &page);
+                if let Some(page) = select_page(conn) {
+                    println!("Page selected: id: {}, url: {}", page.id, page.url);
+                    if webbrowser::open(&page.url).is_ok() {
+                        mark_page_read(conn, &page);
+                    } else {
+                        println!("Failed to open browser");
+                    }
                 } else {
-                    println!("Failed to open browser");
+                    println!("Could not find a page.")
                 }
             }
             handle.join().unwrap();

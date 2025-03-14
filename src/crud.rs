@@ -140,6 +140,18 @@ pub fn create_pages(conn: &mut SqliteConnection, new_pages: Vec<NewPage>) -> usi
     count
 }
 
+pub fn create_single_page(conn: &mut SqliteConnection, new_page: NewPage) -> usize {
+    use crate::schema::pages::dsl::*;
+
+    diesel::insert_into(pages)
+        .values(&new_page)
+        .on_conflict(url)
+        .do_update()
+        .set(read.eq(Option::<PrimitiveDateTime>::None))
+        .execute(conn)
+        .expect("Unexpected database error create_single_page")
+}
+
 pub fn get_pages(conn: &mut SqliteConnection, unread: bool) -> Vec<Page> {
     use crate::schema::pages::dsl::*;
 

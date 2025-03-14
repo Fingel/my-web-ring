@@ -2,7 +2,8 @@ pub mod crud;
 pub mod models;
 pub mod schema;
 use crud::{
-    create_pages, get_page_by_id, get_sources, mark_source_synced, pages_with_source_weight,
+    create_pages, create_single_page, get_page_by_id, get_sources, mark_source_synced,
+    pages_with_source_weight,
 };
 use diesel::SqliteConnection;
 use models::{NewPage, Page, Source};
@@ -55,8 +56,8 @@ pub fn download_source(source: &Source) -> Result<RssResponse, ureq::Error> {
     })
 }
 
-pub fn parse_rss(xml: &str, source_id: i32) -> Result<Vec<NewPage>, rss::Error> {
-    let channel = Channel::read_from(xml.as_bytes())?;
+pub fn parse_rss(body: &str, source_id: i32) -> Result<Vec<NewPage>, rss::Error> {
+    let channel = Channel::read_from(body.as_bytes())?;
     let new_pages: Vec<NewPage> = channel
         .items()
         .iter()
@@ -77,21 +78,34 @@ pub fn sync_sources(conn: &mut SqliteConnection) -> usize {
     let sources = get_sources(conn);
     let mut count = 0;
     for source in sources {
-        let Ok(rss_resp) = download_source(&source) else {
-            println!("Failed to download source {}", source.id);
-            continue;
+        let resp = match download_source(&source) {
+            Ok(resp) => resp,
+            Err(err) => {
+                println!("Failed to download source {}: {}", source.id, err);
+                continue;
+            }
         };
-        if rss_resp.status != 200 {
+        if resp.status >= 400 {
+            println!("Source {} returned status {}", source.id, resp.status);
             continue;
         }
-        let new_pages = parse_rss(&rss_resp.body, source.id);
-        if let Ok(new_pages) = new_pages {
-            count += create_pages(conn, new_pages);
+        let rss_pages = parse_rss(&resp.body, source.id);
+        if let Ok(rss_pages) = rss_pages {
+            // This is a rss feed, so create pages for the feed
+            count += create_pages(conn, rss_pages);
         } else {
-            println!("Failed to parse RSS for source {}", source.id);
-            continue;
+            // This isn't an rss, so create a single page and set as unread
+            create_single_page(
+                conn,
+                NewPage {
+                    url: source.url.clone(),
+                    read: None,
+                    date: None,
+                    source_id: source.id,
+                },
+            );
         }
-        mark_source_synced(conn, source, rss_resp.last_modified, rss_resp.etag);
+        mark_source_synced(conn, source, resp.last_modified, resp.etag);
     }
     count
 }
@@ -126,9 +140,9 @@ pub fn select_page(conn: &mut SqliteConnection) -> Option<Page> {
             (*page_id, sum)
         })
         .collect();
-    let pick = random_range(0..sum);
+    let pick = random_range(0..sum + 1);
     for (page_id, weight) in cum_sum {
-        if pick < weight {
+        if pick <= weight {
             return get_page_by_id(conn, page_id);
         }
     }
