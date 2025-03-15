@@ -1,4 +1,4 @@
-use crate::models::{NewPage, NewSource, Page, Source};
+use crate::models::{NewPage, NewSource, Page, Source, SourceType};
 use diesel::{
     dsl::now,
     prelude::*,
@@ -7,20 +7,14 @@ use diesel::{
         Error::{DatabaseError, NotFound},
     },
 };
-use std::env;
 use time::PrimitiveDateTime;
 
-pub fn establish_connection() -> SqliteConnection {
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    SqliteConnection::establish(&database_url)
-        .unwrap_or_else(|_| panic!("Failed to establish connection to {}", database_url))
-}
-
-pub fn create_source(conn: &mut SqliteConnection, url: &str) -> Source {
+pub fn create_source(conn: &mut SqliteConnection, url: &str, s_type: SourceType) -> Source {
     use crate::schema::sources;
 
     let new_post = NewSource {
         url: url.to_string(),
+        s_type,
     };
 
     match diesel::insert_into(sources::table)
@@ -140,7 +134,8 @@ pub fn create_pages(conn: &mut SqliteConnection, new_pages: Vec<NewPage>) -> usi
     count
 }
 
-pub fn create_single_page(conn: &mut SqliteConnection, new_page: NewPage) -> usize {
+/// Creates a page but if the url exists, set it as unread
+pub fn create_or_reset_page(conn: &mut SqliteConnection, new_page: NewPage) -> usize {
     use crate::schema::pages::dsl::*;
 
     diesel::insert_into(pages)

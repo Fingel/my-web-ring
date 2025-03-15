@@ -9,9 +9,14 @@ diesel = { version = "2.2.8", features = [
     "time",
     "returning_clauses_for_sqlite_3_35",
     "sqlite",
+    "r2d2",
 ] }
 rand = "0.9.0"
 rss = "2.0.12"
-time = { version = "0.3.39", features = ["macros", "formatting", "local-offset"] }
+time = { version = "0.3.39", features = [
+    "macros",
+    "formatting",
+    "local-offset",
+] }
 ureq = "3.0.8"
 webbrowser = "1.0.4"

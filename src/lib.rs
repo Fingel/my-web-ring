@@ -2,11 +2,11 @@ pub mod crud;
 pub mod models;
 pub mod schema;
 use crud::{
-    create_pages, create_single_page, get_page_by_id, get_sources, mark_source_synced,
-    pages_with_source_weight,
+    create_or_reset_page, create_pages, create_source, get_page_by_id, get_sources,
+    mark_source_synced, pages_with_source_weight,
 };
 use diesel::SqliteConnection;
-use models::{NewPage, Page, Source};
+use models::{NewPage, Page, Source, SourceType};
 use rand::random_range;
 use rss::Channel;
 use time::{
@@ -14,27 +14,29 @@ use time::{
     macros::format_description,
 };
 
-pub struct RssResponse {
+pub struct HttpResponse {
     body: String,
-    status: u16,
     last_modified: Option<PrimitiveDateTime>,
     etag: Option<String>,
 }
 
-pub fn download_source(source: &Source) -> Result<RssResponse, ureq::Error> {
-    let mut req = ureq::get(&source.url);
-    if let Some(last_modified) = &source.last_modified {
+pub fn download_source(
+    url: &str,
+    last_modified: &Option<PrimitiveDateTime>,
+    etag: &Option<String>,
+) -> Result<HttpResponse, ureq::Error> {
+    let mut req = ureq::get(url);
+    if let Some(last_modified) = last_modified {
         req = req.header(
             "If-Modified-Since",
             last_modified.assume_utc().format(&Rfc2822).unwrap(),
         );
     }
-    if let Some(etag) = &source.etag {
+    if let Some(etag) = etag {
         req = req.header("If-None-Match", etag);
     }
     let mut response = req.call()?;
     let body = response.body_mut().read_to_string()?;
-    let status = response.status().into();
 
     let last_modified = response
         .headers()
@@ -48,52 +50,54 @@ pub fn download_source(source: &Source) -> Result<RssResponse, ureq::Error> {
         .and_then(|header| header.to_str().ok())
         .map(|etag| etag.to_string());
 
-    Ok(RssResponse {
+    Ok(HttpResponse {
         body,
-        status,
         last_modified,
         etag,
     })
 }
 
-pub fn parse_rss(body: &str, source_id: i32) -> Result<Vec<NewPage>, rss::Error> {
+pub struct RssItem {
+    link: String,
+    date: Option<PrimitiveDateTime>,
+}
+
+pub fn parse_rss(body: &str) -> Result<Vec<RssItem>, rss::Error> {
     let channel = Channel::read_from(body.as_bytes())?;
-    let new_pages: Vec<NewPage> = channel
+    Ok(channel
         .items()
         .iter()
-        .map(|item| NewPage {
-            url: item.link().unwrap_or("").to_string(),
-            read: None,
+        .map(|item| RssItem {
+            link: item.link().unwrap_or("").to_string(),
             date: item
                 .pub_date()
                 .and_then(|date| PrimitiveDateTime::parse(date, &Rfc2822).ok()),
-            source_id,
         })
-        .collect::<Vec<NewPage>>();
-
-    Ok(new_pages)
+        .collect())
 }
 
-pub fn sync_source(conn: &mut SqliteConnection, source: &Source) -> usize {
-    let mut count = 0;
-    let resp = match download_source(source) {
-        Ok(resp) => resp,
-        Err(err) => {
-            println!("Failed to download source {}: {}", source.id, err);
-            return 0;
-        }
-    };
-    if resp.status >= 400 {
-        println!("Source {} returned status {}", source.id, resp.status);
-        return 0;
-    }
-    let rss_pages = parse_rss(&resp.body, source.id);
-    if let Ok(rss_pages) = rss_pages {
-        // This is a rss feed, so create pages for the feed
-        count += create_pages(conn, rss_pages);
+fn rss_to_newpages(rss_items: Vec<RssItem>, source_id: i32) -> Vec<NewPage> {
+    rss_items
+        .into_iter()
+        .map(|item| NewPage {
+            url: item.link,
+            read: None,
+            date: item.date,
+            source_id,
+        })
+        .collect()
+}
+pub fn add_source(conn: &mut SqliteConnection, url: &str) -> Result<Source, ureq::Error> {
+    let resp = download_source(url, &None::<PrimitiveDateTime>, &None::<String>)?;
+    if let Ok(rss_items) = parse_rss(&resp.body) {
+        let source = create_source(conn, url, SourceType::Rss);
+        let new_pages = rss_to_newpages(rss_items, source.id);
+        create_pages(conn, new_pages);
+        mark_source_synced(conn, &source, resp.last_modified, resp.etag);
+        Ok(source)
     } else {
-        // This isn't an rss, so create a single page and set as unread
-        create_single_page(
+        let source = create_source(conn, url, SourceType::Website);
+        create_or_reset_page(
             conn,
             NewPage {
                 url: source.url.clone(),
@@ -102,9 +106,38 @@ pub fn sync_source(conn: &mut SqliteConnection, source: &Source) -> usize {
                 source_id: source.id,
             },
         );
+        Ok(source)
     }
-    mark_source_synced(conn, source, resp.last_modified, resp.etag);
-
+}
+pub fn sync_source(conn: &mut SqliteConnection, source: &Source) -> usize {
+    let mut count = 0;
+    match source.s_type {
+        SourceType::Rss => {
+            let resp = match download_source(&source.url, &source.last_modified, &source.etag) {
+                Ok(resp) => resp,
+                Err(err) => {
+                    println!("Failed to download source {}: {}", source.id, err);
+                    return 0;
+                }
+            };
+            if let Ok(rss_items) = parse_rss(&resp.body) {
+                let new_pages = rss_to_newpages(rss_items, source.id);
+                count += create_pages(conn, new_pages);
+                mark_source_synced(conn, source, resp.last_modified, resp.etag);
+            }
+        }
+        SourceType::Website => {
+            create_or_reset_page(
+                conn,
+                NewPage {
+                    url: source.url.clone(),
+                    read: None,
+                    date: None,
+                    source_id: source.id,
+                },
+            );
+        }
+    }
     count
 }
 pub fn sync_sources(conn: &mut SqliteConnection) -> usize {

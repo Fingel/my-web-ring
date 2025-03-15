@@ -14,6 +14,7 @@ diesel::table! {
 diesel::table! {
     sources (id) {
         id -> Integer,
+        s_type -> Integer,
         weight -> Integer,
         url -> Text,
         last_modified -> Nullable<Timestamp>,

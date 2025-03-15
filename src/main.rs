@@ -1,10 +1,39 @@
 use clap::{Parser, Subcommand};
-use diesel::{RunQueryDsl, sql_query};
-use mwr::crud::{
-    create_source, delete_source, establish_connection, get_pages, get_sources, mark_page_read,
+use diesel::{
+    SqliteConnection,
+    connection::SimpleConnection,
+    r2d2::{ConnectionManager, CustomizeConnection, Error, Pool},
 };
-use mwr::{print_source_list, select_page, sync_source, sync_sources};
+use mwr::crud::{delete_source, get_pages, get_sources, mark_page_read};
+use mwr::{add_source, print_source_list, select_page, sync_sources};
+use std::env;
 use std::thread;
+use std::time::Duration;
+
+#[derive(Debug)]
+pub struct ConnectionOptions {
+    pub enable_wal: bool,
+    pub enable_foreign_keys: bool,
+    pub busy_timeout: Option<Duration>,
+}
+
+impl CustomizeConnection<SqliteConnection, Error> for ConnectionOptions {
+    fn on_acquire(&self, conn: &mut SqliteConnection) -> Result<(), Error> {
+        if self.enable_wal {
+            conn.batch_execute("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;")
+                .map_err(Error::QueryError)?;
+        }
+        if self.enable_foreign_keys {
+            conn.batch_execute("PRAGMA foreign_keys = ON;")
+                .map_err(Error::QueryError)?;
+        }
+        if let Some(d) = self.busy_timeout {
+            conn.batch_execute(&format!("PRAGMA busy_timeout = {};", d.as_millis()))
+                .map_err(Error::QueryError)?;
+        }
+        Ok(())
+    }
+}
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -26,10 +55,17 @@ enum Commands {
 }
 
 fn main() {
-    let conn = &mut establish_connection();
-    sql_query("PRAGMA foreign_keys = ON")
-        .execute(conn)
-        .expect("Failed to enable foreign keys");
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let pool = Pool::builder()
+        .max_size(8)
+        .connection_customizer(Box::new(ConnectionOptions {
+            enable_wal: true,
+            enable_foreign_keys: true,
+            busy_timeout: Some(Duration::from_secs(30)),
+        }))
+        .build(ConnectionManager::<SqliteConnection>::new(database_url))
+        .expect("Could not build connection pool");
+    let conn = &mut pool.get().expect("Failed to get connection");
     let cli = Cli::parse();
     match cli.command {
         Some(Commands::List) => {
@@ -37,10 +73,8 @@ fn main() {
             print_source_list(&sources);
         }
         Some(Commands::Add { url }) => {
-            let source = create_source(conn, &url);
+            let source = add_source(conn, &url).expect("Could not download source.");
             println!("Added {:?}", source);
-            let saved = sync_source(conn, &source);
-            println!("Saved {} pages", saved);
         }
         Some(Commands::Reload) => {
             let saved = sync_sources(conn);
@@ -54,8 +88,8 @@ fn main() {
             }
         }
         None => {
-            let handle = thread::spawn(|| {
-                let sync_conn = &mut establish_connection();
+            let handle = thread::spawn(move || {
+                let sync_conn = &mut pool.get().expect("Failed to get connection");
                 println!("Syncing sources...");
                 let count = sync_sources(sync_conn);
                 println!("Done syncing sources. {} new pages", count);
@@ -73,7 +107,7 @@ fn main() {
                         println!("Failed to open browser");
                     }
                 } else {
-                    println!("Could not find a page.")
+                    println!("Selection algorithm failed to return a page.")
                 }
             }
             handle.join().unwrap();
