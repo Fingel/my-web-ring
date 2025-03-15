@@ -47,6 +47,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Open a page and start the CLI interface (default)
+    Run,
     /// Sync all Sources
     Reload,
     /// List all sources
@@ -126,7 +128,7 @@ fn main() {
                 println!("No source with that ID found.");
             }
         }
-        None => {
+        Some(Commands::Run) | None => {
             let handle = thread::spawn(move || {
                 let sync_conn = &mut pool.get().expect("Failed to get connection");
                 println!("Syncing sources...");
