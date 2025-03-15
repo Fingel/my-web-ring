@@ -100,7 +100,7 @@ fn main() {
     let pool = Pool::builder()
         .max_size(8)
         .connection_customizer(Box::new(ConnectionOptions {
-            enable_wal: true,
+            enable_wal: false,
             enable_foreign_keys: true,
             busy_timeout: Some(Duration::from_secs(30)),
         }))
