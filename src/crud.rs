@@ -7,6 +7,7 @@ use diesel::{
         Error::{DatabaseError, NotFound},
     },
 };
+use std::cmp;
 use time::PrimitiveDateTime;
 
 pub fn create_source(conn: &mut SqliteConnection, url: &str, s_type: SourceType) -> Source {
@@ -178,4 +179,20 @@ pub fn pages_with_source_weight(conn: &mut SqliteConnection) -> Vec<(i32, i32)> 
         .select((id, weight))
         .get_results(conn)
         .expect("Error loading pages with source weight")
+}
+
+pub fn set_source_weight(
+    conn: &mut SqliteConnection,
+    source_id: i32,
+    i_weight: i32,
+) -> (i32, String) {
+    use crate::schema::sources::dsl::{id, sources, url, weight};
+
+    let source = get_source_by_id(conn, source_id).expect("Source not found");
+    let new_weight = cmp::max(0, source.weight + i_weight);
+    diesel::update(sources.filter(id.eq(source_id)))
+        .set(weight.eq(new_weight))
+        .returning((weight, url))
+        .get_result(conn)
+        .expect("Error setting source weight.")
 }

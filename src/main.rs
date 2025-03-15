@@ -4,11 +4,14 @@ use diesel::{
     connection::SimpleConnection,
     r2d2::{ConnectionManager, CustomizeConnection, Error, Pool},
 };
-use mwr::crud::{delete_source, get_pages, get_sources, mark_page_read};
+use mwr::crud::{delete_source, get_pages, get_sources, mark_page_read, set_source_weight};
 use mwr::{add_source, print_source_list, select_page, sync_sources};
-use std::env;
 use std::thread;
 use std::time::Duration;
+use std::{
+    env,
+    io::{Write, stdin, stdout},
+};
 
 #[derive(Debug)]
 struct ConnectionOptions {
@@ -54,6 +57,42 @@ enum Commands {
     Delete { id: i32 },
 }
 
+fn ui_loop(conn: &mut SqliteConnection) {
+    let pages = get_pages(conn, true);
+    if pages.is_empty() {
+        println!("No pages found, add a source first.");
+        return;
+    }
+    println!("{} unread pages", pages.len());
+
+    loop {
+        let page = select_page(conn).unwrap();
+        if webbrowser::open(&page.url).is_ok() {
+            mark_page_read(conn, &page);
+        } else {
+            println!("Failed to open browser");
+        }
+        println!("Current page: {} (source {})", page.url, page.source_id);
+        println!("[n]ext - [u]n-weight - [i]ncrease-weight - [q]uit");
+        stdout().flush().unwrap();
+        let mut input = String::new();
+        stdin().read_line(&mut input).unwrap();
+        match input.trim() {
+            "n" => continue,
+            "u" => {
+                let (new_weight, url) = set_source_weight(conn, page.source_id, -1);
+                println!("Source {} weight updated to {}", url, new_weight);
+            }
+            "i" => {
+                let (new_weight, url) = set_source_weight(conn, page.source_id, 1);
+                println!("Source {} weight updated to {}", url, new_weight);
+            }
+            "q" => break,
+            _ => println!("Invalid command"),
+        }
+    }
+}
+
 fn main() {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let pool = Pool::builder()
@@ -94,22 +133,7 @@ fn main() {
                 let count = sync_sources(sync_conn);
                 println!("Done syncing sources. {} new pages", count);
             });
-            let pages = get_pages(conn, true);
-            if pages.is_empty() {
-                println!("No pages available. Add a source first.");
-            } else {
-                println!("{} unread pages", pages.len());
-                if let Some(page) = select_page(conn) {
-                    println!("Page selected: id: {}, url: {}", page.id, page.url);
-                    if webbrowser::open(&page.url).is_ok() {
-                        mark_page_read(conn, &page);
-                    } else {
-                        println!("Failed to open browser");
-                    }
-                } else {
-                    println!("Selection algorithm failed to return a page.")
-                }
-            }
+            ui_loop(conn);
             handle.join().unwrap();
         }
     }
