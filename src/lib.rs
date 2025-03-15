@@ -14,13 +14,13 @@ use time::{
     macros::format_description,
 };
 
-pub struct HttpResponse {
+struct HttpResponse {
     body: String,
     last_modified: Option<PrimitiveDateTime>,
     etag: Option<String>,
 }
 
-pub fn download_source(
+fn download_source(
     url: &str,
     last_modified: &Option<PrimitiveDateTime>,
     etag: &Option<String>,
@@ -57,12 +57,12 @@ pub fn download_source(
     })
 }
 
-pub struct RssItem {
+struct RssItem {
     link: String,
     date: Option<PrimitiveDateTime>,
 }
 
-pub fn parse_rss(body: &str) -> Result<Vec<RssItem>, rss::Error> {
+fn parse_rss(body: &str) -> Result<Vec<RssItem>, rss::Error> {
     let channel = Channel::read_from(body.as_bytes())?;
     Ok(channel
         .items()
@@ -109,7 +109,7 @@ pub fn add_source(conn: &mut SqliteConnection, url: &str) -> Result<Source, ureq
         Ok(source)
     }
 }
-pub fn sync_source(conn: &mut SqliteConnection, source: &Source) -> usize {
+fn sync_source(conn: &mut SqliteConnection, source: &Source) -> usize {
     let mut count = 0;
     match source.s_type {
         SourceType::Rss => {

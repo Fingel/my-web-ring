@@ -11,10 +11,10 @@ use std::thread;
 use std::time::Duration;
 
 #[derive(Debug)]
-pub struct ConnectionOptions {
-    pub enable_wal: bool,
-    pub enable_foreign_keys: bool,
-    pub busy_timeout: Option<Duration>,
+struct ConnectionOptions {
+    enable_wal: bool,
+    enable_foreign_keys: bool,
+    busy_timeout: Option<Duration>,
 }
 
 impl CustomizeConnection<SqliteConnection, Error> for ConnectionOptions {
