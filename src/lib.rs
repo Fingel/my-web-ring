@@ -74,40 +74,45 @@ pub fn parse_rss(body: &str, source_id: i32) -> Result<Vec<NewPage>, rss::Error>
     Ok(new_pages)
 }
 
+pub fn sync_source(conn: &mut SqliteConnection, source: &Source) -> usize {
+    let mut count = 0;
+    let resp = match download_source(source) {
+        Ok(resp) => resp,
+        Err(err) => {
+            println!("Failed to download source {}: {}", source.id, err);
+            return 0;
+        }
+    };
+    if resp.status >= 400 {
+        println!("Source {} returned status {}", source.id, resp.status);
+        return 0;
+    }
+    let rss_pages = parse_rss(&resp.body, source.id);
+    if let Ok(rss_pages) = rss_pages {
+        // This is a rss feed, so create pages for the feed
+        count += create_pages(conn, rss_pages);
+    } else {
+        // This isn't an rss, so create a single page and set as unread
+        create_single_page(
+            conn,
+            NewPage {
+                url: source.url.clone(),
+                read: None,
+                date: None,
+                source_id: source.id,
+            },
+        );
+    }
+    mark_source_synced(conn, source, resp.last_modified, resp.etag);
+
+    count
+}
 pub fn sync_sources(conn: &mut SqliteConnection) -> usize {
     let sources = get_sources(conn);
-    let mut count = 0;
-    for source in sources {
-        let resp = match download_source(&source) {
-            Ok(resp) => resp,
-            Err(err) => {
-                println!("Failed to download source {}: {}", source.id, err);
-                continue;
-            }
-        };
-        if resp.status >= 400 {
-            println!("Source {} returned status {}", source.id, resp.status);
-            continue;
-        }
-        let rss_pages = parse_rss(&resp.body, source.id);
-        if let Ok(rss_pages) = rss_pages {
-            // This is a rss feed, so create pages for the feed
-            count += create_pages(conn, rss_pages);
-        } else {
-            // This isn't an rss, so create a single page and set as unread
-            create_single_page(
-                conn,
-                NewPage {
-                    url: source.url.clone(),
-                    read: None,
-                    date: None,
-                    source_id: source.id,
-                },
-            );
-        }
-        mark_source_synced(conn, source, resp.last_modified, resp.etag);
-    }
-    count
+    sources
+        .into_iter()
+        .map(|source| sync_source(conn, &source))
+        .sum()
 }
 
 pub fn print_source_list(sources: &Vec<Source>) {

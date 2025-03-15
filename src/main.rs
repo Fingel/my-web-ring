@@ -3,7 +3,7 @@ use diesel::{RunQueryDsl, sql_query};
 use mwr::crud::{
     create_source, delete_source, establish_connection, get_pages, get_sources, mark_page_read,
 };
-use mwr::{print_source_list, select_page, sync_sources};
+use mwr::{print_source_list, select_page, sync_source, sync_sources};
 use std::thread;
 
 #[derive(Parser)]
@@ -39,6 +39,8 @@ fn main() {
         Some(Commands::Add { url }) => {
             let source = create_source(conn, &url);
             println!("Added {:?}", source);
+            let saved = sync_source(conn, &source);
+            println!("Saved {} pages", saved);
         }
         Some(Commands::Reload) => {
             let saved = sync_sources(conn);

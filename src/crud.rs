@@ -108,7 +108,7 @@ pub fn get_sources(conn: &mut SqliteConnection) -> Vec<Source> {
 
 pub fn mark_source_synced(
     conn: &mut SqliteConnection,
-    marked_source: Source,
+    marked_source: &Source,
     i_last_modified: Option<PrimitiveDateTime>,
     i_etag: Option<String>,
 ) -> Source {
