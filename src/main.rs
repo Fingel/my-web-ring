@@ -72,10 +72,10 @@ fn main() {
             let sources = get_sources(conn);
             print_source_list(&sources);
         }
-        Some(Commands::Add { url }) => {
-            let source = add_source(conn, &url).expect("Could not download source.");
-            println!("Added {:?}", source);
-        }
+        Some(Commands::Add { url }) => match add_source(conn, &url) {
+            Ok(source) => println!("Added source: {}", source.url),
+            Err(err) => println!("Failed to add source: {}", err),
+        },
         Some(Commands::Reload) => {
             let saved = sync_sources(conn);
             println!("Saved {} pages", saved);

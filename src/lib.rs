@@ -1,6 +1,8 @@
 pub mod crud;
 pub mod models;
 pub mod schema;
+use std::fmt;
+
 use crud::{
     create_or_reset_page, create_pages, create_source, get_page_by_id, get_sources,
     mark_source_synced, pages_with_source_weight,
@@ -13,6 +15,25 @@ use time::{
     PrimitiveDateTime, UtcOffset, format_description::well_known::Rfc2822,
     macros::format_description,
 };
+
+#[derive(Debug)]
+pub struct NetworkError {
+    message: String,
+}
+
+impl From<ureq::Error> for NetworkError {
+    fn from(error: ureq::Error) -> Self {
+        NetworkError {
+            message: error.to_string(),
+        }
+    }
+}
+
+impl fmt::Display for NetworkError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Network error: {}", self.message)
+    }
+}
 
 struct HttpResponse {
     body: String,
@@ -87,7 +108,7 @@ fn rss_to_newpages(rss_items: Vec<RssItem>, source_id: i32) -> Vec<NewPage> {
         })
         .collect()
 }
-pub fn add_source(conn: &mut SqliteConnection, url: &str) -> Result<Source, ureq::Error> {
+pub fn add_source(conn: &mut SqliteConnection, url: &str) -> Result<Source, NetworkError> {
     let resp = download_source(url, &None::<PrimitiveDateTime>, &None::<String>)?;
     if let Ok(rss_items) = parse_rss(&resp.body) {
         let source = create_source(conn, url, SourceType::Rss);
