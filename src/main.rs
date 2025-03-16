@@ -4,9 +4,7 @@ use diesel::{
     connection::SimpleConnection,
     r2d2::{ConnectionManager, CustomizeConnection, Error, Pool},
 };
-use mwr::crud::{
-    delete_source, get_pages, get_sources, mark_page_read, mark_page_unread, set_source_weight,
-};
+use mwr::crud::{delete_source, get_sources, mark_page_read, mark_page_unread, set_source_weight};
 use mwr::{add_source, print_source_list, select_page, sync_sources};
 use std::thread;
 use std::time::Duration;
@@ -62,14 +60,14 @@ enum Commands {
 }
 
 fn ui_loop(conn: &mut SqliteConnection) {
-    let pages = get_pages(conn, true);
-    if pages.is_empty() {
-        println!("No pages found, add a source first.");
-        return;
-    }
-
     loop {
-        let page = select_page(conn).unwrap();
+        let page = match select_page(conn) {
+            Some(page) => page,
+            None => {
+                println!("No unread pages found.");
+                break;
+            }
+        };
         if webbrowser::open(&page.url).is_ok() {
             mark_page_read(conn, &page);
         } else {
@@ -85,11 +83,11 @@ fn ui_loop(conn: &mut SqliteConnection) {
             "n" => continue,
             "d" => {
                 let (new_weight, url) = set_source_weight(conn, page.source_id, -1);
-                println!("Source {} weight updated to {}", url, new_weight);
+                println!("👎 {} ({})", url, new_weight);
             }
             "u" => {
                 let (new_weight, url) = set_source_weight(conn, page.source_id, 1);
-                println!("Source {} weight updated to {}", url, new_weight);
+                println!("👍{} ({})", url, new_weight);
             }
             "r" => {
                 mark_page_unread(conn, &page);
