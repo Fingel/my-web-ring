@@ -51,8 +51,8 @@ struct Cli {
 enum Commands {
     /// Open a page and start the CLI interface (default)
     Run,
-    /// Sync all Sources
-    Reload,
+    /// Fetch new pages
+    Pull,
     /// List all sources
     List,
     /// Add a new source
@@ -77,6 +77,7 @@ fn ui_loop(conn: &mut SqliteConnection) {
         }
         println!("{} (source {})", page.title, page.source_id);
         println!("[n]ext - [u]upvote - [d]ownvote - [r] mark unread - [q]uit");
+        print!("> ");
         stdout().flush().unwrap();
         let mut input = String::new();
         stdin().read_line(&mut input).unwrap();
@@ -122,7 +123,7 @@ fn main() {
             Ok(source) => println!("Added source: {}", source.url),
             Err(err) => println!("Failed to add source: {}", err),
         },
-        Some(Commands::Reload) => {
+        Some(Commands::Pull) => {
             let saved = sync_sources(conn);
             println!("Saved {} pages", saved);
         }
@@ -137,8 +138,7 @@ fn main() {
             let handle = thread::spawn(move || {
                 let sync_conn = &mut pool.get().expect("Failed to get connection");
                 println!("Syncing sources...");
-                let count = sync_sources(sync_conn);
-                println!("Done syncing sources. {} new pages", count);
+                sync_sources(sync_conn);
             });
             ui_loop(conn);
             handle.join().unwrap();
