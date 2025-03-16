@@ -73,8 +73,8 @@ fn ui_loop(conn: &mut SqliteConnection) {
         } else {
             println!("Failed to open browser");
         }
-        println!("{} (source {})", page.title, page.source_id);
-        println!("[n]ext - [u]upvote - [d]ownvote - [r] mark unread - [q]uit");
+        println!("\x1B[1m{} (source {})\x1B[0m", page.title, page.source_id);
+        println!("[n]ext - [u]pvote - [d]ownvote - [r] mark unread - [q]uit");
         print!("> ");
         stdout().flush().unwrap();
         let mut input = String::new();
