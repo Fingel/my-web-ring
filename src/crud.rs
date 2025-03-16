@@ -169,6 +169,15 @@ pub fn mark_page_read(conn: &mut SqliteConnection, page: &Page) -> Page {
         .expect("Error setting page read.")
 }
 
+pub fn mark_page_unread(conn: &mut SqliteConnection, page: &Page) -> Page {
+    use crate::schema::pages::dsl::*;
+    diesel::update(page)
+        .set(read.eq(None::<PrimitiveDateTime>))
+        .returning(Page::as_returning())
+        .get_result(conn)
+        .expect("Error setting page read.")
+}
+
 pub fn pages_with_source_weight(conn: &mut SqliteConnection) -> Vec<(i32, i32)> {
     use crate::schema::pages::dsl::{id, pages, read};
     use crate::schema::sources::dsl::{sources, weight};

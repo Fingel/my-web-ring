@@ -4,7 +4,9 @@ use diesel::{
     connection::SimpleConnection,
     r2d2::{ConnectionManager, CustomizeConnection, Error, Pool},
 };
-use mwr::crud::{delete_source, get_pages, get_sources, mark_page_read, set_source_weight};
+use mwr::crud::{
+    delete_source, get_pages, get_sources, mark_page_read, mark_page_unread, set_source_weight,
+};
 use mwr::{add_source, print_source_list, select_page, sync_sources};
 use std::thread;
 use std::time::Duration;
@@ -75,19 +77,23 @@ fn ui_loop(conn: &mut SqliteConnection) {
             println!("Failed to open browser");
         }
         println!("Current page: {} (source {})", page.url, page.source_id);
-        println!("[n]ext - [u]n-weight - [i]ncrease-weight - [q]uit");
+        println!("[n]ext - [u]upvote - [d]ownvote - [r] mark unread - [q]uit");
         stdout().flush().unwrap();
         let mut input = String::new();
         stdin().read_line(&mut input).unwrap();
         match input.trim() {
             "n" => continue,
-            "u" => {
+            "d" => {
                 let (new_weight, url) = set_source_weight(conn, page.source_id, -1);
                 println!("Source {} weight updated to {}", url, new_weight);
             }
-            "i" => {
+            "u" => {
                 let (new_weight, url) = set_source_weight(conn, page.source_id, 1);
                 println!("Source {} weight updated to {}", url, new_weight);
+            }
+            "r" => {
+                mark_page_unread(conn, &page);
+                println!("Page {} marked unread", page.url);
             }
             "q" => break,
             _ => println!("Invalid command"),
