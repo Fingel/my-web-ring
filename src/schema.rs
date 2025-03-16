@@ -5,6 +5,7 @@ diesel::table! {
         id -> Integer,
         source_id -> Integer,
         url -> Text,
+        title -> Text,
         read -> Nullable<Timestamp>,
         date -> Timestamp,
         added -> Timestamp,

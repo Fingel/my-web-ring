@@ -80,6 +80,7 @@ fn download_source(
 
 struct RssItem {
     link: String,
+    title: String,
     date: Option<PrimitiveDateTime>,
 }
 
@@ -90,6 +91,7 @@ fn parse_rss(body: &str) -> Result<Vec<RssItem>, rss::Error> {
         .iter()
         .map(|item| RssItem {
             link: item.link().unwrap_or("").to_string(),
+            title: item.title().unwrap_or("Untitled").to_string(),
             date: item
                 .pub_date()
                 .and_then(|date| PrimitiveDateTime::parse(date, &Rfc2822).ok()),
@@ -102,6 +104,7 @@ fn rss_to_newpages(rss_items: Vec<RssItem>, source_id: i32) -> Vec<NewPage> {
         .into_iter()
         .map(|item| NewPage {
             url: item.link,
+            title: item.title,
             read: None,
             date: item.date,
             source_id,
@@ -122,6 +125,7 @@ pub fn add_source(conn: &mut SqliteConnection, url: &str) -> Result<Source, Netw
             conn,
             NewPage {
                 url: source.url.clone(),
+                title: source.url.clone(),
                 read: None,
                 date: None,
                 source_id: source.id,
@@ -152,6 +156,7 @@ fn sync_source(conn: &mut SqliteConnection, source: &Source) -> usize {
                 conn,
                 NewPage {
                     url: source.url.clone(),
+                    title: source.url.clone(),
                     read: None,
                     date: None,
                     source_id: source.id,

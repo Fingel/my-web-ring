@@ -67,7 +67,6 @@ fn ui_loop(conn: &mut SqliteConnection) {
         println!("No pages found, add a source first.");
         return;
     }
-    println!("{} unread pages", pages.len());
 
     loop {
         let page = select_page(conn).unwrap();
@@ -76,7 +75,7 @@ fn ui_loop(conn: &mut SqliteConnection) {
         } else {
             println!("Failed to open browser");
         }
-        println!("Current page: {} (source {})", page.url, page.source_id);
+        println!("{} (source {})", page.title, page.source_id);
         println!("[n]ext - [u]upvote - [d]ownvote - [r] mark unread - [q]uit");
         stdout().flush().unwrap();
         let mut input = String::new();

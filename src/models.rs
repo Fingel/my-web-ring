@@ -69,6 +69,7 @@ pub struct Page {
     pub id: i32,
     pub source_id: i32,
     pub url: String,
+    pub title: String,
     pub read: Option<PrimitiveDateTime>,
     pub date: PrimitiveDateTime,
     pub added: PrimitiveDateTime,
@@ -79,6 +80,7 @@ pub struct Page {
 pub struct NewPage {
     pub source_id: i32,
     pub url: String,
+    pub title: String,
     pub read: Option<PrimitiveDateTime>,
     pub date: Option<PrimitiveDateTime>,
 }
