@@ -4,14 +4,14 @@ use diesel::{
     connection::SimpleConnection,
     r2d2::{ConnectionManager, CustomizeConnection, Error, Pool},
 };
+use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
+use directories::ProjectDirs;
 use mwr::crud::{delete_source, get_sources, mark_page_read, mark_page_unread, set_source_weight};
 use mwr::{add_source, print_source_list, select_page, sync_sources};
+use std::fs;
+use std::io::{Write, stdin, stdout};
 use std::thread;
 use std::time::Duration;
-use std::{
-    env,
-    io::{Write, stdin, stdout},
-};
 
 #[derive(Debug)]
 struct ConnectionOptions {
@@ -99,8 +99,19 @@ fn ui_loop(conn: &mut SqliteConnection) {
     }
 }
 
+fn get_database_location() -> String {
+    let path = ProjectDirs::from("io", "m51", "mwr").unwrap();
+    let data_dir = path.data_dir();
+    if !data_dir.exists() {
+        fs::create_dir_all(data_dir).expect("Failed to create database directory");
+    }
+    data_dir.join("mwr.sqlite3").to_string_lossy().into_owned()
+}
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
+
 fn main() {
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let database_url = get_database_location();
+    println!("database url: {}", database_url);
     let pool = Pool::builder()
         .max_size(8)
         .connection_customizer(Box::new(ConnectionOptions {
@@ -110,7 +121,11 @@ fn main() {
         }))
         .build(ConnectionManager::<SqliteConnection>::new(database_url))
         .expect("Could not build connection pool");
+
     let conn = &mut pool.get().expect("Failed to get connection");
+    conn.run_pending_migrations(MIGRATIONS)
+        .expect("Failed to run migrations, cannot continue.");
+
     let cli = Cli::parse();
     match cli.command {
         Some(Commands::List) => {

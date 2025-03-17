@@ -11,6 +11,8 @@ diesel = { version = "2.2.8", features = [
     "sqlite",
     "r2d2",
 ] }
+diesel_migrations = { version = "2.2.0", features = ["sqlite"] }
+directories = "6.0.0"
 rand = "0.9.0"
 rss = "2.0.12"
 time = { version = "0.3.39", features = [
