@@ -87,7 +87,7 @@ fn ui_loop(conn: &mut SqliteConnection) {
             }
             "u" => {
                 let (new_weight, url) = set_source_weight(conn, page.source_id, 1);
-                println!("👍{} ({})", url, new_weight);
+                println!("👍 {} ({})", url, new_weight);
             }
             "r" => {
                 mark_page_unread(conn, &page);
