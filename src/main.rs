@@ -109,7 +109,6 @@ pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 fn main() {
     let database_url = get_database_location();
-    println!("database url: {}", database_url);
     let pool = Pool::builder()
         .max_size(8)
         .connection_customizer(Box::new(ConnectionOptions {
