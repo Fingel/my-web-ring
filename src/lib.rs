@@ -1,5 +1,6 @@
 pub mod backups;
 pub mod crud;
+pub mod http;
 pub mod models;
 pub mod schema;
 use directories::ProjectDirs;

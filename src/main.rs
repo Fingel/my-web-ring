@@ -10,6 +10,7 @@ use mwr::{add_source, get_database_location, print_source_list, select_page, syn
 use mwr::{
     backups::{backup, restore},
     crud::{delete_source, get_sources, mark_page_read, mark_page_unread, set_source_weight},
+    http::server,
 };
 use std::io::{Write, stdin, stdout};
 use std::thread;
@@ -63,6 +64,8 @@ enum Commands {
     Backup,
     /// Restore sources and pages from stdin.
     Restore,
+    /// Start the HTTP server
+    Server,
 }
 
 fn ui_loop(conn: &mut SqliteConnection) {
@@ -158,6 +161,15 @@ fn main() {
         }
         Some(Commands::Restore) => {
             restore();
+        }
+        Some(Commands::Server) => {
+            let handle = thread::spawn(move || {
+                let sync_conn = &mut pool.get().expect("Failed to get connection");
+                println!("Syncing sources...");
+                sync_sources(sync_conn);
+            });
+            server(conn);
+            handle.join().unwrap();
         }
     }
 }
