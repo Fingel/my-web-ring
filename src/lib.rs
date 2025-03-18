@@ -1,7 +1,9 @@
+pub mod backups;
 pub mod crud;
 pub mod models;
 pub mod schema;
-use std::fmt;
+use directories::ProjectDirs;
+use std::{fmt, fs};
 
 use crud::{
     create_or_reset_page, create_pages, create_source, get_page_by_id, get_sources,
@@ -15,6 +17,15 @@ use time::{
     PrimitiveDateTime, UtcOffset, format_description::well_known::Rfc2822,
     macros::format_description,
 };
+
+pub fn get_database_location() -> String {
+    let path = ProjectDirs::from("io", "m51", "mwr").unwrap();
+    let data_dir = path.data_dir();
+    if !data_dir.exists() {
+        fs::create_dir_all(data_dir).expect("Failed to create database directory");
+    }
+    data_dir.join("mwr.sqlite3").to_string_lossy().into_owned()
+}
 
 #[derive(Debug)]
 pub struct NetworkError {

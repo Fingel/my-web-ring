@@ -33,3 +33,4 @@ target/
 .bin
 .envrc
 db.sqlite3
+backup.sql

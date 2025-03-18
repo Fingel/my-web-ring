@@ -5,10 +5,12 @@ use diesel::{
     r2d2::{ConnectionManager, CustomizeConnection, Error, Pool},
 };
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
-use directories::ProjectDirs;
-use mwr::crud::{delete_source, get_sources, mark_page_read, mark_page_unread, set_source_weight};
-use mwr::{add_source, print_source_list, select_page, sync_sources};
-use std::fs;
+
+use mwr::{add_source, get_database_location, print_source_list, select_page, sync_sources};
+use mwr::{
+    backups::{backup, restore},
+    crud::{delete_source, get_sources, mark_page_read, mark_page_unread, set_source_weight},
+};
 use std::io::{Write, stdin, stdout};
 use std::thread;
 use std::time::Duration;
@@ -57,6 +59,10 @@ enum Commands {
     Add { url: String },
     /// Delete a source
     Delete { id: i32 },
+    /// Backup sources and pages to stdout.
+    Backup,
+    /// Restore sources and pages from stdin.
+    Restore,
 }
 
 fn ui_loop(conn: &mut SqliteConnection) {
@@ -99,14 +105,6 @@ fn ui_loop(conn: &mut SqliteConnection) {
     }
 }
 
-fn get_database_location() -> String {
-    let path = ProjectDirs::from("io", "m51", "mwr").unwrap();
-    let data_dir = path.data_dir();
-    if !data_dir.exists() {
-        fs::create_dir_all(data_dir).expect("Failed to create database directory");
-    }
-    data_dir.join("mwr.sqlite3").to_string_lossy().into_owned()
-}
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 fn main() {
@@ -155,6 +153,12 @@ fn main() {
             });
             ui_loop(conn);
             handle.join().unwrap();
+        }
+        Some(Commands::Backup) => {
+            backup();
+        }
+        Some(Commands::Restore) => {
+            restore();
         }
     }
 }
