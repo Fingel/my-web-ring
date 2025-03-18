@@ -179,13 +179,14 @@ pub fn mark_page_unread(conn: &mut SqliteConnection, page: &Page) -> Page {
 }
 
 pub fn pages_with_source_weight(conn: &mut SqliteConnection) -> Vec<(i32, i32)> {
-    use crate::schema::pages::dsl::{id, pages, read};
+    use crate::schema::pages::dsl::{date, id, pages, read};
     use crate::schema::sources::dsl::{sources, weight};
 
     pages
         .inner_join(sources)
         .filter(read.is_null())
         .select((id, weight))
+        .order(date.asc())
         .get_results(conn)
         .expect("Error loading pages with source weight")
 }

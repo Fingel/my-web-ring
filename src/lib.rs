@@ -205,13 +205,17 @@ pub fn print_source_list(sources: &Vec<Source>) {
 }
 
 /// Use cumulative sum method to select a page on weighted probability.
+/// Also weights newer entries slightly higher.
 pub fn select_page(conn: &mut SqliteConnection) -> Option<Page> {
     let weighted_pages = pages_with_source_weight(conn);
     let mut sum = 0;
     let cum_sum: Vec<(i32, i32)> = weighted_pages
         .iter()
-        .map(|(page_id, weight)| {
-            sum += weight;
+        .enumerate()
+        .map(|(index, (page_id, weight))| {
+            // Weight newer entries slightly higher
+            let adj_weight = weight + (index as i32 / 10);
+            sum += adj_weight;
             (*page_id, sum)
         })
         .collect();
