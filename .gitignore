@@ -34,3 +34,4 @@ target/
 .envrc
 db.sqlite3
 backup.sql
+mwr.log

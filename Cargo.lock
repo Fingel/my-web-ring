@@ -785,6 +785,7 @@ dependencies = [
  "diesel",
  "diesel_migrations",
  "directories",
+ "log",
  "rand",
  "rss",
  "time",

@@ -6,15 +6,22 @@ use diesel::{
 };
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 
-use mwr::{add_source, get_database_location, print_source_list, select_page, sync_sources};
+use log::{LevelFilter, debug, info};
+use mwr::{
+    add_source, get_database_location, logger::AsyncFileLogger, print_source_list, select_page,
+    sync_sources,
+};
 use mwr::{
     backups::{backup, restore},
     crud::{delete_source, get_sources, mark_page_read, mark_page_unread, set_source_weight},
     http::server,
 };
-use std::io::{Write, stdin, stdout};
 use std::thread;
 use std::time::Duration;
+use std::{
+    io::{Write, stdin, stdout},
+    path::PathBuf,
+};
 
 #[derive(Debug)]
 struct ConnectionOptions {
@@ -111,7 +118,9 @@ fn ui_loop(conn: &mut SqliteConnection) {
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 fn main() {
+    AsyncFileLogger::init(PathBuf::from("mwr.log"), LevelFilter::Info).unwrap();
     let database_url = get_database_location();
+    debug!("Database url: {}", database_url);
     let pool = Pool::builder()
         .max_size(8)
         .connection_customizer(Box::new(ConnectionOptions {
@@ -150,8 +159,8 @@ fn main() {
         Some(Commands::Run) | None => {
             let handle = thread::spawn(move || {
                 let sync_conn = &mut pool.get().expect("Failed to get connection");
-                println!("Syncing sources...");
-                sync_sources(sync_conn);
+                let new_pages = sync_sources(sync_conn);
+                info!("Synced {} new pages", new_pages);
             });
             ui_loop(conn);
             handle.join().unwrap();

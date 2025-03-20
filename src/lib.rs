@@ -1,9 +1,11 @@
 pub mod backups;
 pub mod crud;
 pub mod http;
+pub mod logger;
 pub mod models;
 pub mod schema;
 use directories::ProjectDirs;
+use log::info;
 use std::{fmt, fs};
 
 use crud::{
@@ -128,7 +130,8 @@ pub fn add_source(conn: &mut SqliteConnection, url: &str) -> Result<Source, Netw
     if let Ok(rss_items) = parse_rss(&resp.body) {
         let source = create_source(conn, url, SourceType::Rss);
         let new_pages = rss_to_newpages(rss_items, source.id);
-        create_pages(conn, new_pages);
+        let new_pages = create_pages(conn, new_pages);
+        info!("Added {} new pages for source {}", new_pages, source.id);
         mark_source_synced(conn, &source, resp.last_modified, resp.etag);
         Ok(source)
     } else {
@@ -176,6 +179,7 @@ fn sync_source(conn: &mut SqliteConnection, source: &Source) -> usize {
             );
         }
     }
+    info!("Added {} new pages for source {}", count, source.id);
     count
 }
 pub fn sync_sources(conn: &mut SqliteConnection) -> usize {
