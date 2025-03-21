@@ -139,7 +139,7 @@ fn main() {
     match cli.command {
         Some(Commands::List) => {
             let sources = get_sources(conn);
-            print_source_list(&sources);
+            print_source_list(conn, &sources);
         }
         Some(Commands::Add { url }) => match add_source(conn, &url) {
             Ok(source) => println!("Added source: {}", source.url),

@@ -178,6 +178,21 @@ pub fn mark_page_unread(conn: &mut SqliteConnection, page: &Page) -> Page {
         .expect("Error setting page read.")
 }
 
+pub fn read_status_for_source(
+    conn: &mut SqliteConnection,
+    i_source_id: i32,
+) -> Vec<Option<PrimitiveDateTime>> {
+    use crate::schema::pages::dsl::{pages, read, source_id};
+    use crate::schema::sources::dsl::sources;
+
+    pages
+        .inner_join(sources)
+        .filter(source_id.eq(i_source_id))
+        .select(read)
+        .get_results(conn)
+        .expect("Error loading pages for source")
+}
+
 pub fn pages_with_source_weight(conn: &mut SqliteConnection) -> Vec<(i32, i32)> {
     use crate::schema::pages::dsl::{date, id, pages, read};
     use crate::schema::sources::dsl::{sources, weight};

@@ -10,7 +10,7 @@ use std::{fmt, fs};
 
 use crud::{
     create_or_reset_page, create_pages, create_source, get_page_by_id, get_sources,
-    mark_source_synced, pages_with_source_weight,
+    mark_source_synced, pages_with_source_weight, read_status_for_source,
 };
 use diesel::SqliteConnection;
 use models::{NewPage, Page, Source, SourceType};
@@ -190,10 +190,15 @@ pub fn sync_sources(conn: &mut SqliteConnection) -> usize {
         .sum()
 }
 
-pub fn print_source_list(sources: &Vec<Source>) {
+pub fn print_source_list(conn: &mut SqliteConnection, sources: &Vec<Source>) {
     let local_offset = UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC);
-    println!("{:<5}{:<15}{:<10}URL", "ID", "Last Modified", "Weight");
+    println!(
+        "{:<5}{:<15}{:<10}{:<15}URL",
+        "ID", "Last Modified", "Weight", "Unread/Total"
+    );
     for s in sources {
+        let total = read_status_for_source(conn, s.id);
+        let unread = total.iter().filter(|read| read.is_none()).count();
         let format = format_description!("[month]/[day] [hour]:[minute]");
         let formatted = s
             .last_modified
@@ -204,7 +209,14 @@ pub fn print_source_list(sources: &Vec<Source>) {
                     .unwrap_or("Unknown".to_string())
             })
             .unwrap_or_else(|| "Never".to_string());
-        println!("{:<5}{:<15}{:<10}{}", s.id, formatted, s.weight, s.url);
+        println!(
+            "{:<5}{:<15}{:<10}{:<15}{}",
+            s.id,
+            formatted,
+            s.weight,
+            format!("{}/{}", unread, total.len()),
+            s.url
+        );
     }
     println!("{} sources.", sources.len());
 }
