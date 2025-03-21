@@ -9,8 +9,13 @@ use std::{
 use log::{LevelFilter, Metadata, Record, SetLoggerError};
 
 pub struct AsyncFileLogger {
-    sender: Sender<Option<String>>,
+    sender: Sender<AsyncFileLoggerMessage>,
     level_filter: LevelFilter,
+}
+
+enum AsyncFileLoggerMessage {
+    Log(String),
+    Shutdown,
 }
 
 impl AsyncFileLogger {
@@ -30,7 +35,7 @@ impl AsyncFileLogger {
         log::set_boxed_logger(Box::new(logger))
     }
 
-    fn log_thread_fn(receiver: Receiver<Option<String>>, path: &PathBuf) {
+    fn log_thread_fn(receiver: Receiver<AsyncFileLoggerMessage>, path: &PathBuf) {
         let file = match OpenOptions::new().create(true).append(true).open(path) {
             Ok(file) => file,
             Err(err) => panic!("Failed to open log file: {}", err),
@@ -40,7 +45,7 @@ impl AsyncFileLogger {
 
         while let Ok(message) = receiver.recv() {
             match message {
-                Some(log_message) => {
+                AsyncFileLoggerMessage::Log(log_message) => {
                     if let Err(e) = writeln!(writer, "{}", log_message) {
                         eprintln!("Failed to write log message: {}", e);
                     }
@@ -48,8 +53,7 @@ impl AsyncFileLogger {
                         eprintln!("Failed to flush log file: {}", e);
                     }
                 }
-                None => {
-                    // This is the message to shut down the thread.
+                AsyncFileLoggerMessage::Shutdown => {
                     break;
                 }
             }
@@ -65,7 +69,9 @@ impl log::Log for AsyncFileLogger {
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
             let message = format!("{} - {}", record.level(), record.args());
-            self.sender.send(Some(message)).unwrap();
+            self.sender
+                .send(AsyncFileLoggerMessage::Log(message))
+                .unwrap();
         }
     }
 
@@ -74,7 +80,6 @@ impl log::Log for AsyncFileLogger {
 
 impl Drop for AsyncFileLogger {
     fn drop(&mut self) {
-        // Signal the logging thread to shut down
-        let _ = self.sender.send(None);
+        let _ = self.sender.send(AsyncFileLoggerMessage::Shutdown);
     }
 }
