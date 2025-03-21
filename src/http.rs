@@ -1,6 +1,7 @@
 use crate::crud::mark_page_read;
 use crate::select_page;
 use diesel::SqliteConnection;
+use log::error;
 use std::io::{BufRead, BufReader, prelude::*};
 use std::net::{TcpListener, TcpStream};
 
@@ -9,14 +10,20 @@ pub fn server(conn: &mut SqliteConnection) {
     println!("Listening on http://0.0.0.0:8090");
 
     for stream in listener.incoming() {
-        let stream = stream.unwrap();
+        let stream = match stream {
+            Ok(stream) => stream,
+            Err(e) => {
+                error!("Failed to accept connection. Https?: {}", e);
+                continue;
+            }
+        };
         let page = match select_page(conn) {
             Some(page) => {
                 mark_page_read(conn, &page);
                 page
             }
             None => {
-                eprintln!("Failed to select page");
+                error!("Failed to select page");
                 continue;
             }
         };
