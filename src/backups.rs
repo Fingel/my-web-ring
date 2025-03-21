@@ -1,9 +1,9 @@
-use crate::get_database_location;
+use crate::data_locations;
 use std::io::{self, Read, Write};
 use std::process::{Command, Stdio};
 
 pub fn backup() {
-    let database_location = get_database_location();
+    let database_location = data_locations().database;
     let output = Command::new("sqlite3")
         .arg(database_location)
         .arg(".dump")
@@ -14,7 +14,7 @@ pub fn backup() {
 }
 
 pub fn restore() {
-    let database_location = get_database_location();
+    let database_location = data_locations().database;
     let mut sql_dump = String::new();
     io::stdin()
         .read_to_string(&mut sql_dump)

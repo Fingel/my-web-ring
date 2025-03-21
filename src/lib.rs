@@ -21,13 +21,20 @@ use time::{
     macros::format_description,
 };
 
-pub fn get_database_location() -> String {
+pub struct AppDirectories {
+    pub database: std::path::PathBuf,
+    pub log: std::path::PathBuf,
+}
+
+pub fn data_locations() -> AppDirectories {
     let path = ProjectDirs::from("io", "m51", "mwr").unwrap();
     let data_dir = path.data_dir();
     if !data_dir.exists() {
-        fs::create_dir_all(data_dir).expect("Failed to create database directory");
+        fs::create_dir_all(data_dir).expect("Failed to create app directory");
     }
-    data_dir.join("mwr.sqlite3").to_string_lossy().into_owned()
+    let database = data_dir.join("mwr.sqlite3");
+    let log = data_dir.join("mwr.log");
+    AppDirectories { database, log }
 }
 
 #[derive(Debug)]

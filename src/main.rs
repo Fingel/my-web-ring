@@ -8,7 +8,7 @@ use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 
 use log::{LevelFilter, debug, info};
 use mwr::{
-    add_source, get_database_location, logger::AsyncFileLogger, print_source_list, select_page,
+    add_source, data_locations, logger::AsyncFileLogger, print_source_list, select_page,
     sync_sources,
 };
 use mwr::{
@@ -16,12 +16,9 @@ use mwr::{
     crud::{delete_source, get_sources, mark_page_read, mark_page_unread, set_source_weight},
     http::server,
 };
+use std::io::{Write, stdin, stdout};
 use std::thread;
 use std::time::Duration;
-use std::{
-    io::{Write, stdin, stdout},
-    path::PathBuf,
-};
 
 #[derive(Debug)]
 struct ConnectionOptions {
@@ -118,9 +115,10 @@ fn ui_loop(conn: &mut SqliteConnection) {
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 fn main() {
-    AsyncFileLogger::init(PathBuf::from("mwr.log"), LevelFilter::Info).unwrap();
-    let database_url = get_database_location();
-    debug!("Database url: {}", database_url);
+    let proj_paths = data_locations();
+    AsyncFileLogger::init(proj_paths.log, LevelFilter::Info).unwrap();
+    let database_url = proj_paths.database;
+    debug!("Database url: {:?}", database_url);
     let pool = Pool::builder()
         .max_size(8)
         .connection_customizer(Box::new(ConnectionOptions {
@@ -128,7 +126,9 @@ fn main() {
             enable_foreign_keys: true,
             busy_timeout: Some(Duration::from_secs(30)),
         }))
-        .build(ConnectionManager::<SqliteConnection>::new(database_url))
+        .build(ConnectionManager::<SqliteConnection>::new(
+            database_url.to_string_lossy(),
+        ))
         .expect("Could not build connection pool");
 
     let conn = &mut pool.get().expect("Failed to get connection");
