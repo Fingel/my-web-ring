@@ -5,6 +5,7 @@ sites. MWR is not a typical rss reader - you won't be able to see
 all your feeds and their hundreds of unread items. Instead you simply launch
 `mwr` (or access it via http) and you are redirected to a pseudo-random page that
 you haven't read yet.
+![Screenshot From 2025-03-22 16-21-27](https://github.com/user-attachments/assets/5496e588-c18b-4b34-926d-8a1c4bf1afb2)
 
 Why do it this way?
 
