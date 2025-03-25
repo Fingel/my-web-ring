@@ -35,7 +35,7 @@ fn handle_connection(mut stream: TcpStream, redirect: String) {
     let buf_reader = BufReader::new(&stream);
     let _http_request: Vec<_> = buf_reader
         .lines()
-        .map(|result| result.unwrap())
+        .map(|result| result.unwrap_or_default())
         .take_while(|line| !line.is_empty())
         .collect();
     let response = format!("HTTP/1.1 302 Found\r\nLocation: {}\r\n\r\n", redirect);
