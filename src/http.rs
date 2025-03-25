@@ -1,7 +1,7 @@
 use crate::crud::mark_page_read;
-use crate::select_page;
+use crate::{select_page, sync_sources};
 use diesel::SqliteConnection;
-use log::error;
+use log::{error, info};
 use std::io::{BufRead, BufReader, prelude::*};
 use std::net::{TcpListener, TcpStream};
 
@@ -27,17 +27,24 @@ pub fn server(conn: &mut SqliteConnection) {
                 continue;
             }
         };
-        handle_connection(stream, page.url);
+        handle_connection(conn, stream, page.url);
     }
 }
 
-fn handle_connection(mut stream: TcpStream, redirect: String) {
+fn handle_connection(conn: &mut SqliteConnection, mut stream: TcpStream, redirect: String) {
+    info!("Handling http request.");
     let buf_reader = BufReader::new(&stream);
-    let _http_request: Vec<_> = buf_reader
+    let http_request: Vec<_> = buf_reader
         .lines()
         .map(|result| result.unwrap_or_default())
         .take_while(|line| !line.is_empty())
         .collect();
+    if !http_request.is_empty() && http_request[0].contains("reload") {
+        info!("Reloading sources...");
+        // If the path contains "reload", do a sync
+        let count = sync_sources(conn);
+        info!("Reloaded {} sources", count);
+    }
     let response = format!("HTTP/1.1 302 Found\r\nLocation: {}\r\n\r\n", redirect);
     stream.write_all(response.as_bytes()).unwrap();
     stream.flush().unwrap();
