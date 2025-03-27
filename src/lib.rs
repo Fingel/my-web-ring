@@ -5,7 +5,7 @@ pub mod logger;
 pub mod models;
 pub mod schema;
 use directories::ProjectDirs;
-use log::info;
+use log::{info, warn};
 use std::{fmt, fs};
 
 use crud::{
@@ -77,6 +77,7 @@ fn download_source(
     if let Some(etag) = etag {
         req = req.header("If-None-Match", etag);
     }
+    req = req.header("User-Agent", "MWR Feed Reader");
     let mut response = req.call()?;
     let body = response.body_mut().read_to_string()?;
 
@@ -142,6 +143,7 @@ pub fn add_source(conn: &mut SqliteConnection, url: &str) -> Result<Source, Netw
         mark_source_synced(conn, &source, resp.last_modified, resp.etag);
         Ok(source)
     } else {
+        warn!("Could not parse RSS, adding single page.");
         let source = create_source(conn, url, SourceType::Website);
         create_or_reset_page(
             conn,
