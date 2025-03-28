@@ -1,5 +1,5 @@
 use crate::models::{NewPage, NewSource, Page, Source, SourceType};
-use chrono::NaiveDateTime;
+use chrono::{Duration, NaiveDateTime, Utc};
 use diesel::{
     dsl::now,
     prelude::*,
@@ -135,7 +135,8 @@ pub fn create_pages(conn: &mut SqliteConnection, new_pages: Vec<NewPage>) -> usi
     count
 }
 
-/// Creates a page but if the url exists, set it as unread
+/// Creates a page but if the url exists, set it as unread and the date
+/// as 5 days ago so they don't get buried.
 pub fn create_or_reset_page(conn: &mut SqliteConnection, new_page: NewPage) -> usize {
     use crate::schema::pages::dsl::*;
 
@@ -143,7 +144,10 @@ pub fn create_or_reset_page(conn: &mut SqliteConnection, new_page: NewPage) -> u
         .values(&new_page)
         .on_conflict(url)
         .do_update()
-        .set(read.eq(Option::<NaiveDateTime>::None))
+        .set((
+            read.eq(Option::<NaiveDateTime>::None),
+            date.eq((Utc::now() - Duration::days(5)).naive_utc()),
+        ))
         .execute(conn)
         .expect("Unexpected database error create_single_page")
 }
