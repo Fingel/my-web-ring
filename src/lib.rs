@@ -5,6 +5,7 @@ pub mod logger;
 pub mod models;
 pub mod schema;
 use directories::ProjectDirs;
+use feed_rs::parser;
 use log::{info, warn};
 use std::{fmt, fs};
 
@@ -16,7 +17,6 @@ use crud::{
 use diesel::SqliteConnection;
 use models::{NewPage, Page, Source, SourceType};
 use rand::random_range;
-use rss::Channel;
 
 pub struct AppDirectories {
     pub database: std::path::PathBuf,
@@ -101,18 +101,27 @@ struct RssItem {
     date: Option<NaiveDateTime>,
 }
 
-fn parse_rss(body: &str) -> Result<Vec<RssItem>, rss::Error> {
-    let channel = Channel::read_from(body.as_bytes())?;
-    Ok(channel
-        .items()
+fn parse_rss(body: &str) -> Result<Vec<RssItem>, parser::ParseFeedError> {
+    let feed = parser::parse(body.as_bytes())?;
+    Ok(feed
+        .entries
         .iter()
-        .map(|item| RssItem {
-            link: item.link().unwrap_or("").to_string(),
-            title: item.title().unwrap_or("Untitled").to_string(),
-            date: item
-                .pub_date()
-                .and_then(|date| DateTime::parse_from_rfc2822(date).ok())
-                .map(|dt| dt.to_utc().naive_utc()),
+        .map(|entry| {
+            let link = match entry.links.first() {
+                Some(link) => link.href.clone(),
+                None => "".to_string(),
+            };
+
+            let title = match entry.title.as_ref() {
+                Some(title) => title.content.clone(),
+                None => "Untitled".to_string(),
+            };
+
+            RssItem {
+                link,
+                title,
+                date: entry.published.map(|date| date.naive_utc()),
+            }
         })
         .collect())
 }
