@@ -1,4 +1,5 @@
 use crate::schema::{pages, sources};
+use chrono::NaiveDateTime;
 use diesel::{
     backend::Backend,
     deserialize::{self, FromSql, FromSqlRow},
@@ -7,7 +8,6 @@ use diesel::{
     serialize::{self, Output, ToSql},
     sql_types::Integer,
 };
-use time::PrimitiveDateTime;
 
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, FromSqlRow, AsExpression)]
@@ -51,9 +51,9 @@ pub struct Source {
     pub s_type: SourceType,
     pub weight: i32,
     pub url: String,
-    pub last_modified: Option<PrimitiveDateTime>,
+    pub last_modified: Option<NaiveDateTime>,
     pub etag: Option<String>,
-    pub added: PrimitiveDateTime,
+    pub added: NaiveDateTime,
 }
 
 #[derive(Insertable)]
@@ -70,9 +70,9 @@ pub struct Page {
     pub source_id: i32,
     pub url: String,
     pub title: String,
-    pub read: Option<PrimitiveDateTime>,
-    pub date: PrimitiveDateTime,
-    pub added: PrimitiveDateTime,
+    pub read: Option<NaiveDateTime>,
+    pub date: NaiveDateTime,
+    pub added: NaiveDateTime,
 }
 
 #[derive(Insertable)]
@@ -81,6 +81,6 @@ pub struct NewPage {
     pub source_id: i32,
     pub url: String,
     pub title: String,
-    pub read: Option<PrimitiveDateTime>,
-    pub date: Option<PrimitiveDateTime>,
+    pub read: Option<NaiveDateTime>,
+    pub date: Option<NaiveDateTime>,
 }

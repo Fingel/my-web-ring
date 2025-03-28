@@ -8,6 +8,7 @@ use directories::ProjectDirs;
 use log::{info, warn};
 use std::{fmt, fs};
 
+use chrono::{DateTime, Local, NaiveDateTime};
 use crud::{
     create_or_reset_page, create_pages, create_source, get_page_by_id, get_sources,
     mark_source_synced, pages_with_source_weight, read_status_for_source,
@@ -16,10 +17,6 @@ use diesel::SqliteConnection;
 use models::{NewPage, Page, Source, SourceType};
 use rand::random_range;
 use rss::Channel;
-use time::{
-    PrimitiveDateTime, UtcOffset, format_description::well_known::Rfc2822,
-    macros::format_description,
-};
 
 pub struct AppDirectories {
     pub database: std::path::PathBuf,
@@ -58,21 +55,18 @@ impl fmt::Display for NetworkError {
 
 struct HttpResponse {
     body: String,
-    last_modified: Option<PrimitiveDateTime>,
+    last_modified: Option<NaiveDateTime>,
     etag: Option<String>,
 }
 
 fn download_source(
     url: &str,
-    last_modified: &Option<PrimitiveDateTime>,
+    last_modified: &Option<NaiveDateTime>,
     etag: &Option<String>,
 ) -> Result<HttpResponse, ureq::Error> {
     let mut req = ureq::get(url);
     if let Some(last_modified) = last_modified {
-        req = req.header(
-            "If-Modified-Since",
-            last_modified.assume_utc().format(&Rfc2822).unwrap(),
-        );
+        req = req.header("If-Modified-Since", last_modified.and_utc().to_rfc2822());
     }
     if let Some(etag) = etag {
         req = req.header("If-None-Match", etag);
@@ -85,7 +79,8 @@ fn download_source(
         .headers()
         .get("Last-Modified")
         .and_then(|header| header.to_str().ok()) // as string or none
-        .and_then(|date| PrimitiveDateTime::parse(date, &Rfc2822).ok()); // as datetime or none
+        .and_then(|date| DateTime::parse_from_rfc2822(date).ok()) // As DateTime
+        .map(|dt| dt.to_utc().naive_utc()); // As NativeDateTime in UTC
 
     let etag = response
         .headers()
@@ -103,7 +98,7 @@ fn download_source(
 struct RssItem {
     link: String,
     title: String,
-    date: Option<PrimitiveDateTime>,
+    date: Option<NaiveDateTime>,
 }
 
 fn parse_rss(body: &str) -> Result<Vec<RssItem>, rss::Error> {
@@ -116,7 +111,8 @@ fn parse_rss(body: &str) -> Result<Vec<RssItem>, rss::Error> {
             title: item.title().unwrap_or("Untitled").to_string(),
             date: item
                 .pub_date()
-                .and_then(|date| PrimitiveDateTime::parse(date, &Rfc2822).ok()),
+                .and_then(|date| DateTime::parse_from_rfc2822(date).ok())
+                .map(|dt| dt.to_utc().naive_utc()),
         })
         .collect())
 }
@@ -134,7 +130,7 @@ fn rss_to_newpages(rss_items: Vec<RssItem>, source_id: i32) -> Vec<NewPage> {
         .collect()
 }
 pub fn add_source(conn: &mut SqliteConnection, url: &str) -> Result<Source, NetworkError> {
-    let resp = download_source(url, &None::<PrimitiveDateTime>, &None::<String>)?;
+    let resp = download_source(url, &None::<NaiveDateTime>, &None::<String>)?;
     if let Ok(rss_items) = parse_rss(&resp.body) {
         let source = create_source(conn, url, SourceType::Rss);
         let new_pages = rss_to_newpages(rss_items, source.id);
@@ -200,7 +196,6 @@ pub fn sync_sources(conn: &mut SqliteConnection) -> usize {
 }
 
 pub fn print_source_list(conn: &mut SqliteConnection, sources: &Vec<Source>) {
-    let local_offset = UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC);
     println!(
         "{:<5}{:<15}{:<10}{:<15}URL",
         "ID", "Last Modified", "Weight", "Unread/Total"
@@ -208,16 +203,15 @@ pub fn print_source_list(conn: &mut SqliteConnection, sources: &Vec<Source>) {
     for s in sources {
         let total = read_status_for_source(conn, s.id);
         let unread = total.iter().filter(|read| read.is_none()).count();
-        let format = format_description!("[month]/[day] [hour]:[minute]");
-        let formatted = s
-            .last_modified
-            .map(|date| {
-                date.assume_utc()
-                    .to_offset(local_offset)
-                    .format(format)
-                    .unwrap_or("Unknown".to_string())
-            })
-            .unwrap_or_else(|| "Never".to_string());
+        let formatted = match s.last_modified {
+            Some(date) => date
+                .and_local_timezone(Local)
+                .earliest()
+                .unwrap_or(date.and_utc().into())
+                .format("%m/%d %H:%M")
+                .to_string(),
+            None => "Never".to_string(),
+        };
         println!(
             "{:<5}{:<15}{:<10}{:<15}{}",
             s.id,

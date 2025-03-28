@@ -1,3 +1,4 @@
+use chrono::Local;
 use log::{LevelFilter, Metadata, Record, SetLoggerError};
 use std::{
     fs::OpenOptions,
@@ -6,7 +7,6 @@ use std::{
     sync::mpsc::{self, Receiver, Sender},
     thread,
 };
-use time::{OffsetDateTime, macros::format_description};
 
 pub struct AsyncFileLogger {
     sender: Sender<AsyncFileLoggerMessage>,
@@ -68,14 +68,8 @@ impl log::Log for AsyncFileLogger {
 
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
-            let now = OffsetDateTime::now_local().unwrap_or(OffsetDateTime::now_utc());
-            let format = format_description!("[year]-[month]-[day] [hour]:[minute]:[second]");
-            let message = format!(
-                "{} - {} - {}",
-                record.level(),
-                now.format(&format).unwrap_or("Bad date format".to_string()),
-                record.args(),
-            );
+            let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+            let message = format!("{} - {} - {}", record.level(), now, record.args(),);
             self.sender
                 .send(AsyncFileLoggerMessage::Log(message))
                 .unwrap();

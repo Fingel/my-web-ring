@@ -1,4 +1,5 @@
 use crate::models::{NewPage, NewSource, Page, Source, SourceType};
+use chrono::NaiveDateTime;
 use diesel::{
     dsl::now,
     prelude::*,
@@ -8,7 +9,6 @@ use diesel::{
     },
 };
 use std::cmp;
-use time::PrimitiveDateTime;
 
 pub fn create_source(conn: &mut SqliteConnection, url: &str, s_type: SourceType) -> Source {
     use crate::schema::sources;
@@ -104,7 +104,7 @@ pub fn get_sources(conn: &mut SqliteConnection) -> Vec<Source> {
 pub fn mark_source_synced(
     conn: &mut SqliteConnection,
     marked_source: &Source,
-    i_last_modified: Option<PrimitiveDateTime>,
+    i_last_modified: Option<NaiveDateTime>,
     i_etag: Option<String>,
 ) -> Source {
     use crate::schema::sources::dsl::*;
@@ -143,7 +143,7 @@ pub fn create_or_reset_page(conn: &mut SqliteConnection, new_page: NewPage) -> u
         .values(&new_page)
         .on_conflict(url)
         .do_update()
-        .set(read.eq(Option::<PrimitiveDateTime>::None))
+        .set(read.eq(Option::<NaiveDateTime>::None))
         .execute(conn)
         .expect("Unexpected database error create_single_page")
 }
@@ -172,7 +172,7 @@ pub fn mark_page_read(conn: &mut SqliteConnection, page: &Page) -> Page {
 pub fn mark_page_unread(conn: &mut SqliteConnection, page: &Page) -> Page {
     use crate::schema::pages::dsl::*;
     diesel::update(page)
-        .set(read.eq(None::<PrimitiveDateTime>))
+        .set(read.eq(None::<NaiveDateTime>))
         .returning(Page::as_returning())
         .get_result(conn)
         .expect("Error setting page read.")
@@ -181,7 +181,7 @@ pub fn mark_page_unread(conn: &mut SqliteConnection, page: &Page) -> Page {
 pub fn read_status_for_source(
     conn: &mut SqliteConnection,
     i_source_id: i32,
-) -> Vec<Option<PrimitiveDateTime>> {
+) -> Vec<Option<NaiveDateTime>> {
     use crate::schema::pages::dsl::{pages, read, source_id};
     use crate::schema::sources::dsl::sources;
 

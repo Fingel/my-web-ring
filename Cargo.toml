@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+chrono = { version = "0.4.40", default-features = false, features = ["clock", "alloc", "std", "now"] }
 clap = { version = "4.5.31", features = ["derive"] }
 diesel = { version = "2.2.8", features = [
-    "time",
     "returning_clauses_for_sqlite_3_35",
     "sqlite",
+    "chrono",
     "r2d2",
 ] }
 diesel_migrations = { version = "2.2.0", features = ["sqlite"] }
@@ -16,10 +17,5 @@ directories = "6.0.0"
 log = { version = "0.4.26", features = ["std"] }
 rand = "0.9.0"
 rss = "2.0.12"
-time = { version = "0.3.39", features = [
-    "macros",
-    "formatting",
-    "local-offset",
-] }
 ureq = "3.0.8"
 webbrowser = "1.0.4"
