@@ -146,7 +146,7 @@ fn main() {
             Err(err) => println!("Failed to add source: {}", err),
         },
         Some(Commands::Pull) => {
-            let saved = sync_sources(conn);
+            let saved = sync_sources(&pool);
             println!("Saved {} pages", saved);
         }
         Some(Commands::Delete { id }) => {
@@ -158,8 +158,7 @@ fn main() {
         }
         Some(Commands::Run) | None => {
             let handle = thread::spawn(move || {
-                let sync_conn = &mut pool.get().expect("Failed to get connection");
-                let new_pages = sync_sources(sync_conn);
+                let new_pages = sync_sources(&pool);
                 info!("Synced {} new pages", new_pages);
             });
             ui_loop(conn);
@@ -172,13 +171,7 @@ fn main() {
             restore();
         }
         Some(Commands::Server) => {
-            let handle = thread::spawn(move || {
-                let sync_conn = &mut pool.get().expect("Failed to get connection");
-                println!("Syncing sources...");
-                sync_sources(sync_conn);
-            });
-            server(conn);
-            handle.join().unwrap();
+            server(&pool);
         }
     }
 }

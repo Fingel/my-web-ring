@@ -44,7 +44,7 @@ where
     }
 }
 
-#[derive(Queryable, Selectable, Identifiable, Debug, PartialEq, AsChangeset)]
+#[derive(Queryable, Selectable, Identifiable, Debug, PartialEq, AsChangeset, Clone)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Source {
     pub id: i32,

@@ -7,7 +7,7 @@ pub mod schema;
 use directories::ProjectDirs;
 use feed_rs::parser;
 use log::{info, warn};
-use std::{fmt, fs};
+use std::{fmt, fs, thread};
 
 use chrono::{DateTime, Local, NaiveDateTime};
 use crud::{
@@ -15,6 +15,7 @@ use crud::{
     mark_source_synced, pages_with_source_weight, read_status_for_source,
 };
 use diesel::SqliteConnection;
+use diesel::r2d2::{ConnectionManager, Pool};
 use models::{NewPage, Page, Source, SourceType};
 use rand::random_range;
 
@@ -196,11 +197,26 @@ fn sync_source(conn: &mut SqliteConnection, source: &Source) -> usize {
     info!("Added {} new pages for source {}", count, source.id);
     count
 }
-pub fn sync_sources(conn: &mut SqliteConnection) -> usize {
+pub fn sync_sources(pool: &Pool<ConnectionManager<SqliteConnection>>) -> usize {
+    let conn = &mut pool.get().expect("Failed to get connection");
     let sources = get_sources(conn);
-    sources
+    let handles: Vec<_> = sources
+        .chunks(5)
+        .map(|chunk| {
+            let chunk_owned = chunk.to_vec();
+            let conn_pool = pool.clone();
+            thread::spawn(move || {
+                let mut conn = conn_pool.get().unwrap();
+                chunk_owned
+                    .into_iter()
+                    .map(|source| sync_source(&mut conn, &source))
+                    .sum::<usize>()
+            })
+        })
+        .collect();
+    handles
         .into_iter()
-        .map(|source| sync_source(conn, &source))
+        .map(|handle| handle.join().unwrap_or(0))
         .sum()
 }
 
