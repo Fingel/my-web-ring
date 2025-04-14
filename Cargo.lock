@@ -815,6 +815,7 @@ dependencies = [
  "diesel_migrations",
  "directories",
  "feed-rs",
+ "http",
  "log",
  "rand",
  "ureq",
