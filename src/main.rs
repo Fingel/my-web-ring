@@ -13,7 +13,10 @@ use mwr::{
 };
 use mwr::{
     backups::{backup, restore},
-    crud::{delete_source, get_sources, mark_page_read, mark_page_unread, set_source_weight},
+    crud::{
+        delete_source, get_sources, mark_page_read, mark_page_unread, mark_source_read,
+        set_source_weight,
+    },
     http::server,
 };
 use std::io::{Write, stdin, stdout};
@@ -62,6 +65,8 @@ enum Commands {
     List,
     /// Add a new source
     Add { url: String },
+    /// Mark source as read
+    MarkRead { id: i32 },
     /// Delete a source
     Delete { id: i32 },
     /// Backup sources and pages to stdout.
@@ -163,6 +168,11 @@ fn main() {
             });
             ui_loop(conn);
             handle.join().unwrap();
+        }
+
+        Some(Commands::MarkRead { id }) => {
+            let pages_marked = mark_source_read(conn, id);
+            println!("Marked {} pages as read", pages_marked.len());
         }
         Some(Commands::Backup) => {
             backup();

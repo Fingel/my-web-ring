@@ -173,6 +173,16 @@ pub fn mark_page_read(conn: &mut SqliteConnection, page: &Page) -> Page {
         .expect("Error setting page read.")
 }
 
+pub fn mark_source_read(conn: &mut SqliteConnection, i_source_id: i32) -> Vec<Page> {
+    use crate::schema::pages::dsl::*;
+    diesel::update(pages)
+        .filter(source_id.eq(i_source_id))
+        .set(read.eq(now))
+        .returning(Page::as_returning())
+        .get_results(conn)
+        .expect("Error setting pages read.")
+}
+
 pub fn mark_page_unread(conn: &mut SqliteConnection, page: &Page) -> Page {
     use crate::schema::pages::dsl::*;
     diesel::update(page)
