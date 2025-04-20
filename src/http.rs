@@ -1,5 +1,5 @@
 use crate::crud::mark_page_read;
-use crate::{select_page, sync_sources};
+use crate::{find_next_page, sync_sources};
 use diesel::SqliteConnection;
 use diesel::r2d2::{ConnectionManager, Pool};
 use http::{Response, StatusCode};
@@ -20,7 +20,7 @@ pub fn server(pool: &Pool<ConnectionManager<SqliteConnection>>) {
                 continue;
             }
         };
-        let page = match select_page(conn) {
+        let page = match find_next_page(conn) {
             Some(page) => {
                 mark_page_read(conn, &page);
                 page

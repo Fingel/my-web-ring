@@ -8,14 +8,14 @@ use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 
 use log::{LevelFilter, debug, info};
 use mwr::{
-    add_source, data_locations, logger::AsyncFileLogger, print_source_list, select_page,
-    sync_sources,
+    add_source, data_locations, find_next_page, find_next_page_by_source_id,
+    logger::AsyncFileLogger, print_source_list, sync_sources,
 };
 use mwr::{
     backups::{backup, restore},
     crud::{
-        delete_source, get_sources, mark_page_read, mark_page_unread, mark_source_read,
-        set_source_weight,
+        delete_source, get_source_by_id, get_sources, mark_page_read, mark_page_unread,
+        mark_source_read, set_source_weight,
     },
     http::server,
 };
@@ -57,8 +57,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Open a page and start the CLI interface (default)
+    /// Select a page and start the CLI interface (default)
     Run,
+    /// Select a page from a specific source
+    Open { id: i32 },
     /// Fetch new pages
     Pull,
     /// List all sources
@@ -79,7 +81,7 @@ enum Commands {
 
 fn ui_loop(conn: &mut SqliteConnection) {
     loop {
-        let page = match select_page(conn) {
+        let page = match find_next_page(conn) {
             Some(page) => page,
             None => {
                 println!("No unread pages found.");
@@ -169,7 +171,16 @@ fn main() {
             ui_loop(conn);
             handle.join().unwrap();
         }
-
+        Some(Commands::Open { id }) => {
+            let source = get_source_by_id(conn, id).unwrap();
+            println!("Opening source: {}", source.title);
+            let page = find_next_page_by_source_id(conn, id).unwrap();
+            if webbrowser::open(&page.url).is_ok() {
+                mark_page_read(conn, &page);
+            } else {
+                println!("Failed to open browser");
+            }
+        }
         Some(Commands::MarkRead { id }) => {
             let pages_marked = mark_source_read(conn, id);
             println!("Marked {} pages as read", pages_marked.len());

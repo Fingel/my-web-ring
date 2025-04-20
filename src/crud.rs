@@ -170,6 +170,18 @@ pub fn get_pages(conn: &mut SqliteConnection, unread: bool) -> Vec<Page> {
     .expect("Error loading pages")
 }
 
+pub fn get_unread_pages_by_source(conn: &mut SqliteConnection, i_source_id: i32) -> Vec<Page> {
+    use crate::schema::pages::dsl::*;
+
+    pages
+        .filter(source_id.eq(i_source_id))
+        .filter(read.is_null())
+        .select(Page::as_select())
+        .order(added.desc())
+        .get_results(conn)
+        .expect("Error loading pages")
+}
+
 pub fn mark_page_read(conn: &mut SqliteConnection, page: &Page) -> Page {
     use crate::schema::pages::dsl::*;
     diesel::update(page)

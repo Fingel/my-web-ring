@@ -13,7 +13,8 @@ use url::Url;
 use chrono::{DateTime, Local, NaiveDateTime};
 use crud::{
     create_or_reset_page, create_pages, create_source, get_page_by_id, get_sources,
-    mark_source_synced, pages_with_source_weight, read_status_for_source,
+    get_unread_pages_by_source, mark_source_synced, pages_with_source_weight,
+    read_status_for_source,
 };
 use diesel::SqliteConnection;
 use diesel::r2d2::{ConnectionManager, Pool};
@@ -273,10 +274,21 @@ pub fn print_source_list(conn: &mut SqliteConnection, sources: &Vec<Source>) {
     println!("{} sources.", sources.len());
 }
 
+pub fn find_next_page_by_source_id(conn: &mut SqliteConnection, source_id: i32) -> Option<Page> {
+    let pages = get_unread_pages_by_source(conn, source_id);
+    // Single source, so we don't care about weight
+    let weighted_pages = pages.into_iter().map(|page| (page.id, 10)).collect();
+    select_page(conn, weighted_pages)
+}
+
+pub fn find_next_page(conn: &mut SqliteConnection) -> Option<Page> {
+    let pages = pages_with_source_weight(conn);
+    select_page(conn, pages)
+}
+
 /// Use cumulative sum method to select a page on weighted probability.
 /// Also weights newer entries slightly higher.
-pub fn select_page(conn: &mut SqliteConnection) -> Option<Page> {
-    let weighted_pages = pages_with_source_weight(conn);
+pub fn select_page(conn: &mut SqliteConnection, weighted_pages: Vec<(i32, i32)>) -> Option<Page> {
     let mut sum = 0;
     let cum_sum: Vec<(i32, i32)> = weighted_pages
         .iter()
