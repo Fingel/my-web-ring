@@ -54,6 +54,7 @@ pub struct Source {
     pub last_modified: Option<NaiveDateTime>,
     pub etag: Option<String>,
     pub added: NaiveDateTime,
+    pub title: String,
 }
 
 #[derive(Insertable)]
@@ -61,6 +62,7 @@ pub struct Source {
 pub struct NewSource {
     pub url: String,
     pub s_type: SourceType,
+    pub title: String,
 }
 
 #[derive(Queryable, Selectable, Identifiable, Associations, Debug, PartialEq)]

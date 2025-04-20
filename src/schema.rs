@@ -21,6 +21,7 @@ diesel::table! {
         last_modified -> Nullable<Timestamp>,
         etag -> Nullable<Text>,
         added -> Timestamp,
+        title -> Text,
     }
 }
 

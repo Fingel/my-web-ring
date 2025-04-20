@@ -64,7 +64,7 @@ enum Commands {
     /// List all sources
     List,
     /// Add a new source
-    Add { url: String },
+    Add { url: String, title: Option<String> },
     /// Mark source as read
     MarkRead { id: i32 },
     /// Delete a source
@@ -146,7 +146,7 @@ fn main() {
             let sources = get_sources(conn);
             print_source_list(conn, &sources);
         }
-        Some(Commands::Add { url }) => match add_source(conn, &url) {
+        Some(Commands::Add { url, title }) => match add_source(conn, &url, title) {
             Ok(source) => println!("Added source: {}", source.url),
             Err(err) => println!("Failed to add source: {}", err),
         },

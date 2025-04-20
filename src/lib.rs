@@ -8,6 +8,7 @@ use directories::ProjectDirs;
 use feed_rs::parser;
 use log::{info, warn};
 use std::{fmt, fs, thread};
+use url::Url;
 
 use chrono::{DateTime, Local, NaiveDateTime};
 use crud::{
@@ -96,35 +97,47 @@ fn download_source(
     })
 }
 
+struct RssFeed {
+    title: String,
+    items: Vec<RssItem>,
+}
+
 struct RssItem {
     link: String,
     title: String,
     date: Option<NaiveDateTime>,
 }
 
-fn parse_rss(body: &str) -> Result<Vec<RssItem>, parser::ParseFeedError> {
+fn parse_rss(body: &str) -> Result<RssFeed, parser::ParseFeedError> {
     let feed = parser::parse(body.as_bytes())?;
-    Ok(feed
-        .entries
-        .iter()
-        .map(|entry| {
-            let link = match entry.links.first() {
-                Some(link) => link.href.clone(),
-                None => "".to_string(),
-            };
+    let feed_title = match feed.title.as_ref() {
+        Some(title) => title.content.clone(),
+        None => "Untitled".to_string(),
+    };
+    Ok(RssFeed {
+        title: feed_title,
+        items: feed
+            .entries
+            .iter()
+            .map(|entry| {
+                let link = match entry.links.first() {
+                    Some(link) => link.href.clone(),
+                    None => "".to_string(),
+                };
 
-            let title = match entry.title.as_ref() {
-                Some(title) => title.content.clone(),
-                None => "Untitled".to_string(),
-            };
+                let title = match entry.title.as_ref() {
+                    Some(title) => title.content.clone(),
+                    None => "Untitled".to_string(),
+                };
 
-            RssItem {
-                link,
-                title,
-                date: entry.published.map(|date| date.naive_utc()),
-            }
-        })
-        .collect())
+                RssItem {
+                    link,
+                    title,
+                    date: entry.published.map(|date| date.naive_utc()),
+                }
+            })
+            .collect(),
+    })
 }
 
 fn rss_to_newpages(rss_items: Vec<RssItem>, source_id: i32) -> Vec<NewPage> {
@@ -139,18 +152,29 @@ fn rss_to_newpages(rss_items: Vec<RssItem>, source_id: i32) -> Vec<NewPage> {
         })
         .collect()
 }
-pub fn add_source(conn: &mut SqliteConnection, url: &str) -> Result<Source, NetworkError> {
+
+pub fn add_source(
+    conn: &mut SqliteConnection,
+    url: &str,
+    title: Option<String>,
+) -> Result<Source, NetworkError> {
+    let parsed_url = Url::parse(url).expect("Invalid URL");
     let resp = download_source(url, &None::<NaiveDateTime>, &None::<String>)?;
-    if let Ok(rss_items) = parse_rss(&resp.body) {
-        let source = create_source(conn, url, SourceType::Rss);
-        let new_pages = rss_to_newpages(rss_items, source.id);
+    if let Ok(rss_feed) = parse_rss(&resp.body) {
+        let source = create_source(conn, url, SourceType::Rss, rss_feed.title);
+        let new_pages = rss_to_newpages(rss_feed.items, source.id);
         let new_pages = create_pages(conn, new_pages);
         info!("Added {} new pages for source {}", new_pages, source.id);
         mark_source_synced(conn, &source, resp.last_modified, resp.etag);
         Ok(source)
     } else {
         warn!("Could not parse RSS, adding single page.");
-        let source = create_source(conn, url, SourceType::Website);
+        let source = create_source(
+            conn,
+            url,
+            SourceType::Website,
+            title.unwrap_or(parsed_url.host_str().unwrap_or(url).to_string()),
+        );
         create_or_reset_page(
             conn,
             NewPage {
@@ -175,8 +199,8 @@ fn sync_source(conn: &mut SqliteConnection, source: &Source) -> usize {
                     return 0;
                 }
             };
-            if let Ok(rss_items) = parse_rss(&resp.body) {
-                let new_pages = rss_to_newpages(rss_items, source.id);
+            if let Ok(rss_feed) = parse_rss(&resp.body) {
+                let new_pages = rss_to_newpages(rss_feed.items, source.id);
                 count += create_pages(conn, new_pages);
                 mark_source_synced(conn, source, resp.last_modified, resp.etag);
             }
@@ -222,8 +246,8 @@ pub fn sync_sources(pool: &Pool<ConnectionManager<SqliteConnection>>) -> usize {
 
 pub fn print_source_list(conn: &mut SqliteConnection, sources: &Vec<Source>) {
     println!(
-        "{:<5}{:<15}{:<10}{:<15}URL",
-        "ID", "Last Modified", "Weight", "Unread/Total"
+        "{:<5}{:<15}{:<4}{:<8}Title",
+        "ID", "Last Modified", "👍", "Unread"
     );
     for s in sources {
         let total = read_status_for_source(conn, s.id);
@@ -238,12 +262,12 @@ pub fn print_source_list(conn: &mut SqliteConnection, sources: &Vec<Source>) {
             None => "Never".to_string(),
         };
         println!(
-            "{:<5}{:<15}{:<10}{:<15}{}",
+            "{:<5}{:<15}{:<5}{:<8}{}",
             s.id,
             formatted,
             s.weight,
             format!("{}/{}", unread, total.len()),
-            s.url
+            s.title
         );
     }
     println!("{} sources.", sources.len());

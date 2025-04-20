@@ -10,12 +10,18 @@ use diesel::{
 };
 use std::cmp;
 
-pub fn create_source(conn: &mut SqliteConnection, url: &str, s_type: SourceType) -> Source {
+pub fn create_source(
+    conn: &mut SqliteConnection,
+    url: &str,
+    s_type: SourceType,
+    title: String,
+) -> Source {
     use crate::schema::sources;
 
     let new_post = NewSource {
         url: url.to_string(),
         s_type,
+        title,
     };
 
     match diesel::insert_into(sources::table)
