@@ -1,6 +1,6 @@
 # My Web Ring
 
-My Web Ring, mwr for short, local-first RSS reader that also supports non-feed webpages and youtube channels.
+My Web Ring, mwr for short, is a local-first RSS reader that also supports non-feed webpages and youtube channels.
 MWR is not a typical RSS reader: launching
 `mwr` (or accessing it via http) will open your browser to an unread pseudo-random page.
 
