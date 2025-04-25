@@ -1,0 +1,26 @@
+name: Rust
+
+on:
+  push:
+    tags:
+      - "*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build deps
+        run: sudo apt-get install -y libsqlite3-dev
+      - name: Build
+        run: cargo build --release --verbose
+      - name: Upload to new release
+        uses: ncipollo/release-action@v1.16.0
+        with:
+          artifacts: "target/release/mwr"
