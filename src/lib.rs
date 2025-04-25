@@ -10,7 +10,7 @@ use log::{info, warn};
 use std::{fmt, fs, thread};
 use url::Url;
 
-use chrono::{DateTime, Local, NaiveDateTime};
+use chrono::{DateTime, NaiveDateTime};
 use crud::{
     create_or_reset_page, create_pages, create_source, get_page_by_id, get_sources,
     get_unread_pages_by_source, mark_source_synced, pages_with_source_weight,
@@ -246,26 +246,13 @@ pub fn sync_sources(pool: &Pool<ConnectionManager<SqliteConnection>>) -> usize {
 }
 
 pub fn print_source_list(conn: &mut SqliteConnection, sources: &Vec<Source>) {
-    println!(
-        "{:<5}{:<15}{:<4}{:<8}Title",
-        "ID", "Last Modified", "👍", "Unread"
-    );
+    println!("{:<5}{:<4}{:<8}Title", "ID", "👍", "Unread");
     for s in sources {
         let total = read_status_for_source(conn, s.id);
         let unread = total.iter().filter(|read| read.is_none()).count();
-        let formatted = match s.last_modified {
-            Some(date) => date
-                .and_local_timezone(Local)
-                .earliest()
-                .unwrap_or(date.and_utc().into())
-                .format("%m/%d %H:%M")
-                .to_string(),
-            None => "Never".to_string(),
-        };
         println!(
-            "{:<5}{:<15}{:<5}{:<8}{}",
+            "{:<5}{:<5}{:<8}{}",
             s.id,
-            formatted,
             s.weight,
             format!("{}/{}", unread, total.len()),
             s.title
