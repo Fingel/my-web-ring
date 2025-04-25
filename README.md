@@ -1,7 +1,7 @@
 # My Web Ring
 
-My Web Ring, mwr for short, local-first rss reader that also supports non-feed webpages.
-MWR is not a typical rss reader: launching
+My Web Ring, mwr for short, local-first RSS reader that also supports non-feed webpages and youtube channels.
+MWR is not a typical RSS reader: launching
 `mwr` (or accessing it via http) will open your browser to an unread pseudo-random page.
 
 https://github.com/user-attachments/assets/3b8c5973-689d-429f-88e8-b36f0988d401
@@ -67,3 +67,10 @@ Options:
   -h, --help     Print help
   -V, --version  Print version
 ```
+# Adding Youtube channels
+Youtube channels have secret RSS feeds:
+
+https://www.youtube.com/feeds/videos.xml?channel_id=<channel_id>
+
+You can find the channel ID by clicking "more" in the channel description,
+share channel, copy channel ID.
